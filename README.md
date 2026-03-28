@@ -1,17 +1,21 @@
-# assetbridge
+# AssetBridge — Offline icon library for Linux
 
-A new Flutter project.
+AssetBridge is a desktop icon management tool for Linux that pulls icon packs from GitHub or local ZIP files, extracts them, and provides a fast, searchable interface for designers and developers.
 
-## Getting Started
+## Features
+- **GitHub Downloads**: Instantly fetch the latest releases (Phosphor, Tabler, Lucide, Heroicons, Material Design).
+- **Local Pack Support**: Add your own icon collections via ZIP files.
+- **SQLite Indexing**: Blazing fast search based on SVG path names and directory structure.
+- **XDG-Compliant**: Stores everything safely in `~/.local/share/assetbridge/`, respecting standard Linux conventions.
+- **Modern UI**: Built with Flutter for a smooth, high-performance experience.
 
-This project is a starting point for a Flutter application.
+## Documentation
+- [Architecture](docs/architecture.md) — Technical overview and data flow.
+- [Working Principle](docs/working.md) — How icon packs are fetched, extracted, and indexed.
+- [Developer Setup](docs/setup.md) — Build and run instructions.
+- [Modifying & Extending](docs/modify.md) — How to add new features or custom parsers.
+- [Code Explained](docs/codeexplain.md) — Deep dive into the main classes and models.
 
-A few resources to get you started if this is your first Flutter project:
+---
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+*(c) 2026 AssetBridge Developer*

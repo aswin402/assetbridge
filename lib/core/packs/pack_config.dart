@@ -1,21 +1,20 @@
-import 'package:flutter/foundation.dart';
 
 class PackConfig {
   const PackConfig({
     required this.name,
     required this.slug,
-    required this.owner,
-    required this.repo,
+    this.owner,
+    this.repo,
     this.svgPathPrefix,
   });
 
   final String name;
   /// Unique identifier (e.g., used for folder names).
   final String slug;
-  /// GitHub repository owner.
-  final String owner;
-  /// GitHub repository name.
-  final String repo;
+  /// GitHub repository owner (optional for local packs).
+  final String? owner;
+  /// GitHub repository name (optional for local packs).
+  final String? repo;
   /// Optional path prefix to search for SVGs within the zip file.
   final String? svgPathPrefix;
 }

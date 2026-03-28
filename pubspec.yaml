@@ -46,6 +46,7 @@ dependencies:
   flutter_svg: ^2.2.4
   dio: ^5.9.2
   archive: ^4.0.9
+  file_picker: ^8.1.7
 
 dev_dependencies:
   flutter_test:

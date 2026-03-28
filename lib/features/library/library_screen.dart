@@ -13,6 +13,7 @@ import '../downloader/downloader_screen.dart';
 import '../../shared/widgets/category_chip.dart';
 import '../../shared/widgets/pack_sidebar_row.dart';
 import '../../shared/widgets/search_bar.dart';
+import '../downloader/pack_install_notifier.dart';
 import 'library_providers.dart';
 
 final _categories = ['All', 'Arrows', 'UI', 'Social', 'Shapes', 'More'];
@@ -62,6 +63,35 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
       if (!mounted) return;
       setState(() => _debouncedSearch = _searchController.text.trim().toLowerCase());
     });
+  }
+
+  Future<void> _confirmDeletePack(Pack pack) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete pack?'),
+        content: Text('This will remove "${pack.name}" and all its icons from your library.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+              foregroundColor: Theme.of(context).colorScheme.onError,
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      final slug = pack.name.toLowerCase().replaceAll(RegExp(r'[^a-z0-8]'), '_');
+      ref.read(packInstallProvider.notifier).delete(pack.name, slug);
+    }
   }
 
   @override
@@ -182,6 +212,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                                             }
                                           });
                                         },
+                                        onDelete: () => _confirmDeletePack(pack),
                                       );
                                     },
                                   );
@@ -283,23 +314,23 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                                   ),
                                 );
                               }
-                              return GridView.builder(
-                                padding: const EdgeInsets.all(16),
-                                gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-                                  maxCrossAxisExtent: _gridExtent,
-                                  mainAxisSpacing: 8,
-                                  crossAxisSpacing: 8,
-                                  childAspectRatio: 1,
-                                ),
-                                itemCount: filtered.length,
-                                itemBuilder: (context, i) {
-                                  final a = filtered[i];
-                                  return _SvgTile(
-                                    asset: a,
-                                    size: _gridExtent,
-                                  );
-                                },
-                              );
+                                return GridView.builder(
+                                  padding: const EdgeInsets.all(16),
+                                  gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+                                    maxCrossAxisExtent: _gridExtent,
+                                    mainAxisSpacing: 8,
+                                    crossAxisSpacing: 8,
+                                    childAspectRatio: 1,
+                                  ),
+                                  itemCount: filtered.length,
+                                  itemBuilder: (context, i) {
+                                    final a = filtered[i];
+                                    return _AssetTile(
+                                      asset: a,
+                                      size: _gridExtent,
+                                    );
+                                  },
+                                );
                             },
                           ),
                         ),
@@ -316,11 +347,22 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
   }
 }
 
-class _SvgTile extends StatelessWidget {
-  const _SvgTile({required this.asset, required this.size});
+class _AssetTile extends StatelessWidget {
+  const _AssetTile({required this.asset, required this.size});
 
   final Asset asset;
   final double size;
+
+  bool get _isSvg => asset.filePath.toLowerCase().endsWith('.svg');
+  bool get _isSketch => asset.filePath.toLowerCase().endsWith('.sketch');
+
+  Future<void> _handleTap(BuildContext context) async {
+    if (_isSvg) {
+      await _copySvg(context);
+    } else {
+      await _copyPath(context);
+    }
+  }
 
   Future<void> _copySvg(BuildContext context) async {
     try {
@@ -364,7 +406,7 @@ class _SvgTile extends StatelessWidget {
       borderRadius: BorderRadius.circular(8),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: () => _copySvg(context),
+        onTap: () => _handleTap(context),
         onSecondaryTapDown: (details) {
           final position = details.globalPosition;
           showMenu(
@@ -376,14 +418,15 @@ class _SvgTile extends StatelessWidget {
               position.dy,
             ),
             items: [
-              PopupMenuItem(
-                onTap: () => _copySvg(context),
-                child: const ListTile(
-                  leading: Icon(Icons.copy, size: 18),
-                  title: Text('Copy SVG'),
-                  dense: true,
+              if (_isSvg)
+                PopupMenuItem(
+                  onTap: () => _copySvg(context),
+                  child: const ListTile(
+                    leading: Icon(Icons.copy, size: 18),
+                    title: Text('Copy SVG'),
+                    dense: true,
+                  ),
                 ),
-              ),
               PopupMenuItem(
                 onTap: () => _copyPath(context),
                 child: const ListTile(
@@ -399,17 +442,40 @@ class _SvgTile extends StatelessWidget {
           message: asset.name,
           child: Padding(
             padding: const EdgeInsets.all(6),
-            child: SvgPicture.file(
-              file,
-              width: size * 0.55,
-              height: size * 0.55,
-              fit: BoxFit.contain,
-              errorBuilder: (context, error, stackTrace) => Icon(
-                Icons.broken_image_outlined,
-                size: size * 0.35,
-                color: Theme.of(context).colorScheme.outline,
-              ),
-            ),
+            child: _isSvg
+                ? SvgPicture.file(
+                    file,
+                    width: size * 0.55,
+                    height: size * 0.55,
+                    fit: BoxFit.contain,
+                    errorBuilder: (context, error, stackTrace) => Icon(
+                      Icons.broken_image_outlined,
+                      size: size * 0.35,
+                      color: Theme.of(context).colorScheme.outline,
+                    ),
+                  )
+                : Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        _isSketch ? Icons.diamond_outlined : Icons.insert_drive_file_outlined,
+                        size: size * 0.45,
+                        color: _isSketch ? Colors.orange : Theme.of(context).colorScheme.primary,
+                      ),
+                      if (size > 60) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          asset.name,
+                          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                fontSize: 8,
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ],
+                  ),
           ),
         ),
       ),

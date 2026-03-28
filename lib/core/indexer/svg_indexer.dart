@@ -28,7 +28,8 @@ class SvgIndexer {
     final companions = <AssetsCompanion>[];
     await for (final entity in scanDir.list(recursive: true, followLinks: false)) {
       if (entity is! File) continue;
-      if (!entity.path.toLowerCase().endsWith('.svg')) continue;
+      final lowerPath = entity.path.toLowerCase();
+      if (!lowerPath.endsWith('.svg') && !lowerPath.endsWith('.sketch')) continue;
 
       final stat = await entity.stat();
       final rel = p.relative(entity.path, from: packRoot);

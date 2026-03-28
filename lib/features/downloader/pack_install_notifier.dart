@@ -1,7 +1,9 @@
+import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/database/database_provider.dart';
+import '../../core/database/pack_repository.dart';
 import '../../core/packs/pack_config.dart';
 import '../../core/packs/pack_installer.dart';
 import '../../core/providers/dio_provider.dart';
@@ -83,6 +85,82 @@ class PackInstallNotifier extends Notifier<Map<String, PackInstallState>> {
       }
     } finally {
       _cancelTokens.remove(slug);
+    }
+  }
+
+  Future<void> installLocal({
+    required String name,
+    required String path,
+    String? svgPathPrefix,
+  }) async {
+    final slug = name.toLowerCase().replaceAll(RegExp(r'[^a-z0-8]'), '_');
+    state = {
+      ...state,
+      slug: const PackInstallState(
+        busy: true,
+        progress: 0,
+        progressLabel: 'Starting…',
+      ),
+    };
+
+    try {
+      final db = ref.read(appDatabaseProvider);
+      final dio = ref.read(dioProvider);
+      await PackInstaller(db, dio).installLocal(
+        zipFile: File(path),
+        name: name,
+        slug: slug,
+        svgPathPrefix: svgPathPrefix,
+        onProgress: (phase, fraction) {
+          state = {
+            ...state,
+            slug: PackInstallState(
+              busy: true,
+              progress: fraction,
+              progressLabel: phase,
+            ),
+          };
+        },
+      );
+      state = {
+        ...state,
+        slug: const PackInstallState(),
+      };
+    } catch (e) {
+      state = {
+        ...state,
+        slug: PackInstallState(
+          busy: false,
+          error: e.toString(),
+        ),
+      };
+    }
+  }
+
+  Future<void> delete(String packName, String slug) async {
+    state = {
+      ...state,
+      slug: const PackInstallState(
+        busy: true,
+        progressLabel: 'Deleting…',
+      ),
+    };
+
+    try {
+      final db = ref.read(appDatabaseProvider);
+      await db.deletePackByName(packName);
+      state = {
+        ...state,
+        slug: const PackInstallState(),
+      };
+    } catch (e) {
+      state = {
+        ...state,
+        slug: PackInstallState(
+          busy: false,
+          error: e.toString(),
+        ),
+      };
     }
   }
 
