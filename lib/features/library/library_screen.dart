@@ -384,6 +384,9 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                                                   ? null
                                                   : pack.id;
                                             }),
+                                            onRescan: () => ref
+                                                .read(packInstallProvider.notifier)
+                                                .rescanCustomLibrary(pack),
                                             onDelete: () =>
                                                 _confirmDeletePack(pack),
                                           );

@@ -1,9 +1,12 @@
 import 'dart:io';
 import 'package:dio/dio.dart';
+import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/database/app_database.dart';
 import '../../core/database/database_provider.dart';
 import '../../core/database/pack_repository.dart';
+import '../../core/indexer/svg_indexer.dart';
 import '../../core/packs/pack_config.dart';
 import '../../core/packs/pack_installer.dart';
 import '../../core/providers/dio_provider.dart';
@@ -44,7 +47,7 @@ class PackInstallNotifier extends Notifier<Map<String, PackInstallState>> {
       slug: const PackInstallState(
         busy: true,
         progress: 0,
-        progressLabel: 'Starting…',
+        progressLabel: 'Starting...',
       ),
     };
 
@@ -102,7 +105,7 @@ class PackInstallNotifier extends Notifier<Map<String, PackInstallState>> {
       slug: const PackInstallState(
         busy: true,
         progress: 0,
-        progressLabel: 'Starting…',
+        progressLabel: 'Starting...',
       ),
     };
 
@@ -153,7 +156,7 @@ class PackInstallNotifier extends Notifier<Map<String, PackInstallState>> {
       slug: const PackInstallState(
         busy: true,
         progress: 0,
-        progressLabel: 'Linking library…',
+        progressLabel: 'Linking library...',
       ),
     };
 
@@ -191,12 +194,60 @@ class PackInstallNotifier extends Notifier<Map<String, PackInstallState>> {
     }
   }
 
+  /// Rescans a custom library folder for new/changed files.
+  /// SAFE — only clears DB asset rows then re-indexes. Never touches disk files.
+  Future<void> rescanCustomLibrary(Pack pack) async {
+    final slug = pack.name.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '_');
+    state = {
+      ...state,
+      slug: const PackInstallState(
+        busy: true,
+        progressLabel: 'Scanning...',
+      ),
+    };
+
+    try {
+      final db = ref.read(appDatabaseProvider);
+
+      // Only clear DB asset rows — never delete the folder on disk!
+      await db.transaction(() async {
+        await (db.delete(db.assets)..where((a) => a.packId.equals(pack.id))).go();
+      });
+
+      // Re-run the indexer on the existing localPath (no download, no extraction)
+      final count = await SvgIndexer(db).indexPackContents(
+        packId: pack.id,
+        packRoot: pack.localPath,
+      );
+
+      // Update icon count
+      await (db.update(db.packs)..where((p) => p.id.equals(pack.id)))
+          .write(PacksCompanion(iconCount: Value(count)));
+
+      state = {
+        ...state,
+        slug: const PackInstallState(),
+      };
+      ref.read(toastProvider.notifier).success(
+          'Rescan complete — found $count items in "${pack.name}"');
+    } catch (e) {
+      ref.read(toastProvider.notifier).error('Rescan failed: ${e.toString()}');
+      state = {
+        ...state,
+        slug: PackInstallState(
+          busy: false,
+          error: e.toString(),
+        ),
+      };
+    }
+  }
+
   Future<void> delete(String packName, String slug) async {
     state = {
       ...state,
       slug: const PackInstallState(
         busy: true,
-        progressLabel: 'Deleting…',
+        progressLabel: 'Deleting...',
       ),
     };
 
@@ -231,8 +282,9 @@ class PackInstallNotifier extends Notifier<Map<String, PackInstallState>> {
   }
 
   Future<void> installFromGithubUrl(String url, {String? name}) async {
-    // 1. Parse URL
-    String cleanUrl = url.trim().replaceAll(RegExp(r'^https?://'), '').replaceAll('github.com/', '');
+    String cleanUrl = url.trim()
+        .replaceAll(RegExp(r'^https?://'), '')
+        .replaceAll('github.com/', '');
     if (cleanUrl.endsWith('.git')) cleanUrl = cleanUrl.substring(0, cleanUrl.length - 4);
     if (cleanUrl.endsWith('/')) cleanUrl = cleanUrl.substring(0, cleanUrl.length - 1);
 
@@ -253,7 +305,6 @@ class PackInstallNotifier extends Notifier<Map<String, PackInstallState>> {
       repo: repo,
     );
 
-    // 2. Delegate to existing install logic
     await install(config);
   }
 }

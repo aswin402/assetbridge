@@ -8,6 +8,7 @@ class PackSidebarRow extends StatelessWidget {
     required this.selected,
     required this.onTap,
     this.onDelete,
+    this.onRescan,
     this.showIcon = true,
   });
 
@@ -16,6 +17,7 @@ class PackSidebarRow extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
   final VoidCallback? onDelete;
+  final VoidCallback? onRescan;
   final bool showIcon;
 
   @override
@@ -65,6 +67,19 @@ class PackSidebarRow extends StatelessWidget {
                     color: selected ? colorScheme.primary.withValues(alpha: 0.7) : colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
                   ),
                 ),
+                if (onRescan != null) ...[
+                  const SizedBox(width: 2),
+                  IconButton(
+                    onPressed: onRescan,
+                    icon: const Icon(Icons.refresh_rounded, size: 14),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    visualDensity: VisualDensity.compact,
+                    color: colorScheme.primary.withValues(alpha: 0.6),
+                    hoverColor: colorScheme.primaryContainer,
+                    tooltip: 'Rescan for new files',
+                  ),
+                ],
                 if (onDelete != null) ...[
                   const SizedBox(width: 4),
                   IconButton(
