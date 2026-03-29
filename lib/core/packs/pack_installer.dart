@@ -39,9 +39,23 @@ class PackInstaller {
       repo: repo,
       cancelToken: cancelToken,
     );
-    if (release == null || release.zipballUrl.isEmpty) {
-      throw StateError('No GitHub release or zipball URL for $owner/$repo');
+    if (release == null) {
+      throw StateError('No GitHub release for $owner/$repo');
     }
+
+    // Check for .sketch assets first if it's a UI kit or if we want to be flexible
+    final sketchAsset = release.assets.cast<GitHubReleaseAsset?>().firstWhere(
+          (a) => a?.name.toLowerCase().endsWith('.sketch') ?? false,
+          orElse: () => null,
+        );
+
+    final downloadUrl = sketchAsset?.browserDownloadUrl ?? release.zipballUrl;
+    if (downloadUrl.isEmpty) {
+      throw StateError('No download URL available for $owner/$repo');
+    }
+
+    final isSketch = sketchAsset != null;
+    final isUiKit = config.isUiKit || isSketch;
 
     final packDir = p.join(AppPaths.packsRoot, config.slug);
     await _db.deletePackByName(config.name);
@@ -50,7 +64,7 @@ class PackInstaller {
 
     final tempDir =
         await Directory.systemTemp.createTemp('assetbridge_${config.slug}_');
-    final zipFile = File(p.join(tempDir.path, 'src.zip'));
+    final zipFile = File(p.join(tempDir.path, isSketch ? 'kit.sketch' : 'src.zip'));
 
     Future<void> cleanupFailure() async {
       await _db.deletePackByName(config.name);
@@ -58,17 +72,17 @@ class PackInstaller {
     }
 
     try {
-      onProgress?.call('Downloading ${release.tagName}…', 0);
+      final label = isSketch ? 'Downloading Sketch Kit…' : 'Downloading ${release.tagName}…';
+      onProgress?.call(label, 0);
       await _dio.download(
-        release.zipballUrl,
+        downloadUrl,
         zipFile.path,
         cancelToken: cancelToken,
         onReceiveProgress: (received, total) {
           if (total <= 0) {
-            onProgress?.call('Downloading ${release.tagName}…', null);
+            onProgress?.call(label, null);
           } else {
-            onProgress?.call(
-                'Downloading ${release.tagName}…', received / total);
+            onProgress?.call(label, received / total);
           }
         },
       );
@@ -78,9 +92,17 @@ class PackInstaller {
         return;
       }
 
-      onProgress?.call('Extracting…', null);
-      final bytes = await zipFile.readAsBytes();
-      await extractZipBytes(bytes, packDir);
+      if (isSketch) {
+        onProgress?.call('Extracting Sketch bundle…', null);
+        final kitFolder = p.join(packDir, config.slug);
+        await Directory(kitFolder).create(recursive: true);
+        final bytes = await zipFile.readAsBytes();
+        await extractZipBytes(bytes, kitFolder);
+      } else {
+        onProgress?.call('Extracting…', null);
+        final bytes = await zipFile.readAsBytes();
+        await extractZipBytes(bytes, packDir);
+      }
 
       if (cancelToken?.isCancelled ?? false) {
         await cleanupFailure();
@@ -92,7 +114,7 @@ class PackInstaller {
         packDir: packDir,
         version: release.tagName,
         sourceUrl: release.htmlUrl,
-        isUiKit: false,
+        isUiKit: isUiKit,
         onProgress: onProgress,
       );
     } catch (e) {
@@ -169,12 +191,37 @@ class PackInstaller {
     }
   }
 
+  /// Links an existing local directory as a custom library.
+  /// No files are copied or extracted; we just index the existing directory.
+  Future<void> installCustomLibrary({
+    required String name,
+    required String path,
+    bool isUiKit = false,
+    void Function(String phase, double? fraction)? onProgress,
+  }) async {
+    final slug = name.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '_');
+
+    // Deleting by name handles replacement/refresh cases
+    await _db.deletePackByName(name);
+
+    await _finishInstallation(
+      config: PackConfig(name: name, slug: slug),
+      packDir: path,
+      version: 'custom',
+      sourceUrl: 'file://$path',
+      isUiKit: isUiKit,
+      isCustom: true,
+      onProgress: onProgress,
+    );
+  }
+
   Future<void> _finishInstallation({
     required PackConfig config,
     required String packDir,
     required String version,
     required String sourceUrl,
     bool isUiKit = false,
+    bool isCustom = false,
     void Function(String phase, double? fraction)? onProgress,
   }) async {
     onProgress?.call('Indexing…', null);
@@ -188,6 +235,7 @@ class PackInstaller {
             downloadedAt: Value(DateTime.now()),
             sourceUrl: Value(sourceUrl),
             isUiKit: Value(isUiKit),
+            isCustom: Value(isCustom),
           ),
         );
 

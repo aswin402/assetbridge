@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:super_clipboard/super_clipboard.dart';
 import 'package:super_drag_and_drop/super_drag_and_drop.dart';
@@ -22,6 +23,7 @@ import '../downloader/downloader_screen.dart';
 import '../downloader/pack_install_notifier.dart';
 import 'library_providers.dart';
 import '../../shared/theme/theme_mode_provider.dart';
+import '../../core/providers/toast_provider.dart';
 
 final _categories = ['All', 'Arrows', 'UI', 'Social', 'Shapes', 'More'];
 
@@ -102,6 +104,91 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
       final slug = pack.name.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '_');
       ref.read(packInstallProvider.notifier).delete(pack.name, slug);
     }
+  }
+
+  Future<void> _showAddLibraryDialog() async {
+    final nameController = TextEditingController();
+    final pathController = TextEditingController();
+    bool isUiKit = false;
+
+    await showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Add Custom Library'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(
+                  labelText: 'Library name',
+                  hintText: 'e.g. My Projects',
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: pathController,
+                      decoration: const InputDecoration(
+                        labelText: 'Directory Path',
+                        hintText: 'Select folder...',
+                      ),
+                      readOnly: true,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    onPressed: () async {
+                      final path = await FilePicker.platform.getDirectoryPath();
+                      if (path != null) {
+                        pathController.text = path;
+                        if (nameController.text.isEmpty) {
+                          nameController.text = p.basename(path);
+                        }
+                      }
+                    },
+                    icon: const Icon(Icons.folder_open_rounded),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              SwitchListTile(
+                value: isUiKit,
+                onChanged: (v) => setState(() => isUiKit = v),
+                title: const Text('Treat as UI Kit'),
+                subtitle: const Text('Components will extracted from Sketch files if present'),
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final name = nameController.text.trim();
+                final path = pathController.text.trim();
+                if (name.isNotEmpty && path.isNotEmpty) {
+                  ref.read(packInstallProvider.notifier).installCustomLibrary(
+                    name: name,
+                    path: path,
+                    isUiKit: isUiKit,
+                  );
+                  Navigator.pop(context);
+                }
+              },
+              child: const Text('Add'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -203,7 +290,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                                       loading: () => const SizedBox.shrink(),
                                       error: (e, _) => Center(child: Text('$e')),
                                       data: (packs) {
-                                        final icons = packs.where((p) => !p.isUiKit).toList();
+                                        final icons = packs.where((p) => !p.isUiKit && !p.isCustom).toList();
                                         return Column(
                                           children: [
                                             PackSidebarRow(
@@ -238,13 +325,41 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                                       },
                                     ),
                                     const SizedBox(height: 24),
+                                    _sectionLabel(context, 'MY LIBRARIES'),
+                                    const SizedBox(height: 8),
+                                    packsAsync.when(
+                                      loading: () => const SizedBox.shrink(),
+                                      error: (e, _) => const SizedBox.shrink(),
+                                      data: (packs) {
+                                        final customs = packs.where((p) => p.isCustom).toList();
+                                        if (customs.isEmpty) return _emptyLabel(context, 'No custom libraries.');
+                                        return ListView.builder(
+                                          shrinkWrap: true,
+                                          physics: const NeverScrollableScrollPhysics(),
+                                          itemCount: customs.length,
+                                          itemBuilder: (context, i) {
+                                            final pack = customs[i];
+                                            return PackSidebarRow(
+                                              title: pack.name,
+                                              countLabel: '${pack.iconCount}',
+                                              selected: _selectedPackId == pack.id,
+                                              onTap: () => setState(() {
+                                                _selectedPackId = (_selectedPackId == pack.id) ? null : pack.id;
+                                              }),
+                                              onDelete: () => _confirmDeletePack(pack),
+                                            );
+                                          },
+                                        );
+                                      },
+                                    ),
+                                    const SizedBox(height: 24),
                                     _sectionLabel(context, 'UI KITS'),
                                     const SizedBox(height: 8),
                                     packsAsync.when(
                                       loading: () => const SizedBox.shrink(),
                                       error: (e, _) => const SizedBox.shrink(),
                                       data: (packs) {
-                                        final kits = packs.where((p) => p.isUiKit).toList();
+                                        final kits = packs.where((p) => p.isUiKit && !p.isCustom).toList();
                                         if (kits.isEmpty) return _emptyLabel(context, 'No UI kits added.');
                                         return ListView.builder(
                                           shrinkWrap: true,
@@ -270,6 +385,22 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                               ),
                             ),
                             const SizedBox(height: 16),
+                            FilledButton(
+                              onPressed: _showAddLibraryDialog,
+                              style: FilledButton.styleFrom(
+                                backgroundColor: Theme.of(context).colorScheme.primary,
+                                foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                              ),
+                              child: const Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.library_add_rounded, size: 18),
+                                  const SizedBox(width: 8),
+                                  Text('Add Library', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 8),
                             FilledButton.tonal(
                               onPressed: () {
                                 Navigator.of(context).push<void>(
@@ -277,8 +408,8 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                                 );
                               },
                               style: FilledButton.styleFrom(
-                                backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
-                                foregroundColor: Theme.of(context).colorScheme.primary,
+                                backgroundColor: Theme.of(context).colorScheme.secondaryContainer.withValues(alpha: 0.5),
+                                foregroundColor: Theme.of(context).colorScheme.onSecondaryContainer,
                               ),
                               child: const Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
@@ -425,17 +556,17 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
 // Asset tile
 // ---------------------------------------------------------------------------
 
-class _AssetTile extends StatefulWidget {
+class _AssetTile extends ConsumerStatefulWidget {
   const _AssetTile({super.key, required this.asset, required this.size});
 
   final Asset asset;
   final double size;
 
   @override
-  State<_AssetTile> createState() => _AssetTileState();
+  ConsumerState<_AssetTile> createState() => _AssetTileState();
 }
 
-class _AssetTileState extends State<_AssetTile> {
+class _AssetTileState extends ConsumerState<_AssetTile> {
   bool _extracting = false;
 
   Asset get asset => widget.asset;
@@ -453,9 +584,9 @@ class _AssetTileState extends State<_AssetTile> {
     try {
       final content = await File(asset.filePath).readAsString();
       await Clipboard.setData(ClipboardData(text: content));
-      _snack('Copied SVG: ${asset.name}');
+      ref.read(toastProvider.notifier).success('Copied SVG: ${asset.name}');
     } catch (e) {
-      _snack('Failed to copy: $e');
+      ref.read(toastProvider.notifier).error('Failed to copy: $e');
     }
   }
 
@@ -464,13 +595,13 @@ class _AssetTileState extends State<_AssetTile> {
     try {
       final svgText = await _resolveSvg();
       if (svgText == null || svgText.isEmpty) {
-        _snack('Could not convert ${asset.name} to SVG');
+        ref.read(toastProvider.notifier).error('Could not convert ${asset.name} to SVG');
         return;
       }
       await Clipboard.setData(ClipboardData(text: svgText));
-      _snack('Copied as SVG: ${asset.name} — paste into Lunacy');
+      ref.read(toastProvider.notifier).success('Copied as SVG: ${asset.name} — paste into Lunacy');
     } catch (e) {
-      _snack('Error: $e');
+      ref.read(toastProvider.notifier).error('Error: $e');
     } finally {
       if (mounted) setState(() => _extracting = false);
     }
@@ -525,19 +656,7 @@ class _AssetTileState extends State<_AssetTile> {
 
   Future<void> _copyRawPath() async {
     await Clipboard.setData(ClipboardData(text: asset.filePath));
-    _snack('Copied path: ${asset.filePath}');
-  }
-
-  void _snack(String msg) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(msg),
-        duration: const Duration(seconds: 2),
-        behavior: SnackBarBehavior.floating,
-        width: 340,
-      ),
-    );
+    ref.read(toastProvider.notifier).success('Copied path: ${asset.filePath}');
   }
 
   Future<DragItem?> _buildDragItem(DragItemRequest request) async {

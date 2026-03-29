@@ -22,6 +22,7 @@ class Packs extends Table {
   TextColumn get sourceUrl => text().nullable()();
 
   BoolColumn get isUiKit => boolean().withDefault(const Constant(false))();
+  BoolColumn get isCustom => boolean().withDefault(const Constant(false))();
 }
 
 class Assets extends Table {
@@ -77,10 +78,13 @@ class AppDatabase extends _$AppDatabase {
         if (from < 4) {
           await m.addColumn(assets, assets.metadata);
         }
+        if (from < 5) {
+          await m.addColumn(packs, packs.isCustom);
+        }
       },
     );
   }
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 }

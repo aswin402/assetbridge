@@ -30,9 +30,8 @@ class SvgPreviewCache {
 
 /// Semaphore that limits concurrent async operations.
 class Semaphore {
-  Semaphore(this._maxCount) : _currentCount = _maxCount;
+  Semaphore(int maxCount) : _currentCount = maxCount;
 
-  final int _maxCount;
   int _currentCount;
   final _waiters = <Completer<void>>[];
 

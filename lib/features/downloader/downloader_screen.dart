@@ -82,6 +82,16 @@ class DownloaderScreen extends ConsumerWidget {
                     ),
                     const Spacer(),
                     TextButton.icon(
+                      onPressed: () => _showAddGithubDialog(context, ref),
+                      icon: const Icon(Icons.cloud_download_rounded, size: 16),
+                      label: const Text('Add from GitHub'),
+                      style: TextButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                        textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    TextButton.icon(
                       onPressed: () => _showAddLocalDialog(context, ref),
                       icon: const Icon(Icons.add_rounded, size: 16),
                       label: const Text('Add Local'),
@@ -103,6 +113,7 @@ class DownloaderScreen extends ConsumerWidget {
             config = supportedPacks[index - 1];
           } else {
             final slug = customSlugs[index - supportedPacks.length - 1];
+            // Recover some basic info from the install state if possible, though mostly for UI
             config = PackConfig(name: slug, slug: slug);
           }
 
@@ -148,7 +159,7 @@ class DownloaderScreen extends ConsumerWidget {
                                 )
                               else
                                 Text(
-                                  'Local path',
+                                  'Custom pack',
                                   style: TextStyle(
                                     fontSize: 11,
                                     color: colorScheme.secondary.withValues(alpha: 0.7),
@@ -232,7 +243,7 @@ class DownloaderScreen extends ConsumerWidget {
                     const SizedBox(height: 16),
                     Row(
                       children: [
-                        if (isFixedPack)
+                        if (isFixedPack || config.owner != null) // Keep button if it's a GitHub pack
                           SizedBox(
                             height: 32,
                             child: FilledButton(
@@ -326,6 +337,61 @@ class DownloaderScreen extends ConsumerWidget {
     if (confirmed == true) {
       ref.read(packInstallProvider.notifier).delete(name, slug);
     }
+  }
+
+  Future<void> _showAddGithubDialog(BuildContext context, WidgetRef ref) async {
+    final urlController = TextEditingController();
+    final nameController = TextEditingController();
+
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Add from GitHub'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: urlController,
+              autofocus: true,
+              decoration: const InputDecoration(
+                labelText: 'Repository URL',
+                hintText: 'github.com/owner/repo',
+                helperText: 'We\'ll look for .sketch files or source code.',
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: nameController,
+              decoration: const InputDecoration(
+                labelText: 'Display Name (optional)',
+                hintText: 'e.g. My Custom Pack',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final url = urlController.text.trim();
+              if (url.isNotEmpty) {
+                ref.read(packInstallProvider.notifier).installFromGithubUrl(
+                      url,
+                      name: nameController.text.trim().isEmpty
+                          ? null
+                          : nameController.text.trim(),
+                    );
+                Navigator.pop(context);
+              }
+            },
+            child: const Text('Add'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _showAddLocalDialog(BuildContext context, WidgetRef ref) async {

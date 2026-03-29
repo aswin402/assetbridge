@@ -7,6 +7,7 @@ import '../../core/database/pack_repository.dart';
 import '../../core/packs/pack_config.dart';
 import '../../core/packs/pack_installer.dart';
 import '../../core/providers/dio_provider.dart';
+import '../../core/providers/toast_provider.dart';
 
 class PackInstallState {
   const PackInstallState({
@@ -75,6 +76,7 @@ class PackInstallNotifier extends Notifier<Map<String, PackInstallState>> {
           slug: const PackInstallState(),
         };
       } else {
+        ref.read(toastProvider.notifier).error('Install failed: ${e.toString()}');
         state = {
           ...state,
           slug: PackInstallState(
@@ -129,6 +131,56 @@ class PackInstallNotifier extends Notifier<Map<String, PackInstallState>> {
         slug: const PackInstallState(),
       };
     } catch (e) {
+      ref.read(toastProvider.notifier).error('Local install failed: ${e.toString()}');
+      state = {
+        ...state,
+        slug: PackInstallState(
+          busy: false,
+          error: e.toString(),
+        ),
+      };
+    }
+  }
+
+  Future<void> installCustomLibrary({
+    required String name,
+    required String path,
+    bool isUiKit = false,
+  }) async {
+    final slug = name.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '_');
+    state = {
+      ...state,
+      slug: const PackInstallState(
+        busy: true,
+        progress: 0,
+        progressLabel: 'Linking library…',
+      ),
+    };
+
+    try {
+      final db = ref.read(appDatabaseProvider);
+      final dio = ref.read(dioProvider);
+      await PackInstaller(db, dio).installCustomLibrary(
+        name: name,
+        path: path,
+        isUiKit: isUiKit,
+        onProgress: (phase, fraction) {
+          state = {
+            ...state,
+            slug: PackInstallState(
+              busy: true,
+              progress: fraction,
+              progressLabel: phase,
+            ),
+          };
+        },
+      );
+      state = {
+        ...state,
+        slug: const PackInstallState(),
+      };
+    } catch (e) {
+      ref.read(toastProvider.notifier).error('Linking failed: ${e.toString()}');
       state = {
         ...state,
         slug: PackInstallState(
@@ -156,6 +208,7 @@ class PackInstallNotifier extends Notifier<Map<String, PackInstallState>> {
         slug: const PackInstallState(),
       };
     } catch (e) {
+      ref.read(toastProvider.notifier).error('Delete failed: ${e.toString()}');
       state = {
         ...state,
         slug: PackInstallState(
@@ -175,5 +228,32 @@ class PackInstallNotifier extends Notifier<Map<String, PackInstallState>> {
       ...state,
       slug: const PackInstallState(),
     };
+  }
+
+  Future<void> installFromGithubUrl(String url, {String? name}) async {
+    // 1. Parse URL
+    String cleanUrl = url.trim().replaceAll(RegExp(r'^https?://'), '').replaceAll('github.com/', '');
+    if (cleanUrl.endsWith('.git')) cleanUrl = cleanUrl.substring(0, cleanUrl.length - 4);
+    if (cleanUrl.endsWith('/')) cleanUrl = cleanUrl.substring(0, cleanUrl.length - 1);
+
+    final parts = cleanUrl.split('/');
+    if (parts.length < 2) {
+      throw ArgumentError('Invalid GitHub URL: $url. Expected format: github.com/owner/repo');
+    }
+
+    final owner = parts[0];
+    final repo = parts[1];
+    final slug = '${owner}_$repo'.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '_');
+    final displayName = name ?? repo;
+
+    final config = PackConfig(
+      name: displayName,
+      slug: slug,
+      owner: owner,
+      repo: repo,
+    );
+
+    // 2. Delegate to existing install logic
+    await install(config);
   }
 }

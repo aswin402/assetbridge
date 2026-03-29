@@ -100,6 +100,21 @@ class $PacksTable extends Packs with TableInfo<$PacksTable, Pack> {
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _isCustomMeta = const VerificationMeta(
+    'isCustom',
+  );
+  @override
+  late final GeneratedColumn<bool> isCustom = GeneratedColumn<bool>(
+    'is_custom',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_custom" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -110,6 +125,7 @@ class $PacksTable extends Packs with TableInfo<$PacksTable, Pack> {
     downloadedAt,
     sourceUrl,
     isUiKit,
+    isCustom,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -179,6 +195,12 @@ class $PacksTable extends Packs with TableInfo<$PacksTable, Pack> {
         isUiKit.isAcceptableOrUnknown(data['is_ui_kit']!, _isUiKitMeta),
       );
     }
+    if (data.containsKey('is_custom')) {
+      context.handle(
+        _isCustomMeta,
+        isCustom.isAcceptableOrUnknown(data['is_custom']!, _isCustomMeta),
+      );
+    }
     return context;
   }
 
@@ -220,6 +242,10 @@ class $PacksTable extends Packs with TableInfo<$PacksTable, Pack> {
         DriftSqlType.bool,
         data['${effectivePrefix}is_ui_kit'],
       )!,
+      isCustom: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_custom'],
+      )!,
     );
   }
 
@@ -238,6 +264,7 @@ class Pack extends DataClass implements Insertable<Pack> {
   final DateTime? downloadedAt;
   final String? sourceUrl;
   final bool isUiKit;
+  final bool isCustom;
   const Pack({
     required this.id,
     required this.name,
@@ -247,6 +274,7 @@ class Pack extends DataClass implements Insertable<Pack> {
     this.downloadedAt,
     this.sourceUrl,
     required this.isUiKit,
+    required this.isCustom,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -263,6 +291,7 @@ class Pack extends DataClass implements Insertable<Pack> {
       map['source_url'] = Variable<String>(sourceUrl);
     }
     map['is_ui_kit'] = Variable<bool>(isUiKit);
+    map['is_custom'] = Variable<bool>(isCustom);
     return map;
   }
 
@@ -280,6 +309,7 @@ class Pack extends DataClass implements Insertable<Pack> {
           ? const Value.absent()
           : Value(sourceUrl),
       isUiKit: Value(isUiKit),
+      isCustom: Value(isCustom),
     );
   }
 
@@ -297,6 +327,7 @@ class Pack extends DataClass implements Insertable<Pack> {
       downloadedAt: serializer.fromJson<DateTime?>(json['downloadedAt']),
       sourceUrl: serializer.fromJson<String?>(json['sourceUrl']),
       isUiKit: serializer.fromJson<bool>(json['isUiKit']),
+      isCustom: serializer.fromJson<bool>(json['isCustom']),
     );
   }
   @override
@@ -311,6 +342,7 @@ class Pack extends DataClass implements Insertable<Pack> {
       'downloadedAt': serializer.toJson<DateTime?>(downloadedAt),
       'sourceUrl': serializer.toJson<String?>(sourceUrl),
       'isUiKit': serializer.toJson<bool>(isUiKit),
+      'isCustom': serializer.toJson<bool>(isCustom),
     };
   }
 
@@ -323,6 +355,7 @@ class Pack extends DataClass implements Insertable<Pack> {
     Value<DateTime?> downloadedAt = const Value.absent(),
     Value<String?> sourceUrl = const Value.absent(),
     bool? isUiKit,
+    bool? isCustom,
   }) => Pack(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -332,6 +365,7 @@ class Pack extends DataClass implements Insertable<Pack> {
     downloadedAt: downloadedAt.present ? downloadedAt.value : this.downloadedAt,
     sourceUrl: sourceUrl.present ? sourceUrl.value : this.sourceUrl,
     isUiKit: isUiKit ?? this.isUiKit,
+    isCustom: isCustom ?? this.isCustom,
   );
   Pack copyWithCompanion(PacksCompanion data) {
     return Pack(
@@ -345,6 +379,7 @@ class Pack extends DataClass implements Insertable<Pack> {
           : this.downloadedAt,
       sourceUrl: data.sourceUrl.present ? data.sourceUrl.value : this.sourceUrl,
       isUiKit: data.isUiKit.present ? data.isUiKit.value : this.isUiKit,
+      isCustom: data.isCustom.present ? data.isCustom.value : this.isCustom,
     );
   }
 
@@ -358,7 +393,8 @@ class Pack extends DataClass implements Insertable<Pack> {
           ..write('localPath: $localPath, ')
           ..write('downloadedAt: $downloadedAt, ')
           ..write('sourceUrl: $sourceUrl, ')
-          ..write('isUiKit: $isUiKit')
+          ..write('isUiKit: $isUiKit, ')
+          ..write('isCustom: $isCustom')
           ..write(')'))
         .toString();
   }
@@ -373,6 +409,7 @@ class Pack extends DataClass implements Insertable<Pack> {
     downloadedAt,
     sourceUrl,
     isUiKit,
+    isCustom,
   );
   @override
   bool operator ==(Object other) =>
@@ -385,7 +422,8 @@ class Pack extends DataClass implements Insertable<Pack> {
           other.localPath == this.localPath &&
           other.downloadedAt == this.downloadedAt &&
           other.sourceUrl == this.sourceUrl &&
-          other.isUiKit == this.isUiKit);
+          other.isUiKit == this.isUiKit &&
+          other.isCustom == this.isCustom);
 }
 
 class PacksCompanion extends UpdateCompanion<Pack> {
@@ -397,6 +435,7 @@ class PacksCompanion extends UpdateCompanion<Pack> {
   final Value<DateTime?> downloadedAt;
   final Value<String?> sourceUrl;
   final Value<bool> isUiKit;
+  final Value<bool> isCustom;
   const PacksCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
@@ -406,6 +445,7 @@ class PacksCompanion extends UpdateCompanion<Pack> {
     this.downloadedAt = const Value.absent(),
     this.sourceUrl = const Value.absent(),
     this.isUiKit = const Value.absent(),
+    this.isCustom = const Value.absent(),
   });
   PacksCompanion.insert({
     this.id = const Value.absent(),
@@ -416,6 +456,7 @@ class PacksCompanion extends UpdateCompanion<Pack> {
     this.downloadedAt = const Value.absent(),
     this.sourceUrl = const Value.absent(),
     this.isUiKit = const Value.absent(),
+    this.isCustom = const Value.absent(),
   }) : name = Value(name),
        version = Value(version),
        iconCount = Value(iconCount),
@@ -429,6 +470,7 @@ class PacksCompanion extends UpdateCompanion<Pack> {
     Expression<DateTime>? downloadedAt,
     Expression<String>? sourceUrl,
     Expression<bool>? isUiKit,
+    Expression<bool>? isCustom,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -439,6 +481,7 @@ class PacksCompanion extends UpdateCompanion<Pack> {
       if (downloadedAt != null) 'downloaded_at': downloadedAt,
       if (sourceUrl != null) 'source_url': sourceUrl,
       if (isUiKit != null) 'is_ui_kit': isUiKit,
+      if (isCustom != null) 'is_custom': isCustom,
     });
   }
 
@@ -451,6 +494,7 @@ class PacksCompanion extends UpdateCompanion<Pack> {
     Value<DateTime?>? downloadedAt,
     Value<String?>? sourceUrl,
     Value<bool>? isUiKit,
+    Value<bool>? isCustom,
   }) {
     return PacksCompanion(
       id: id ?? this.id,
@@ -461,6 +505,7 @@ class PacksCompanion extends UpdateCompanion<Pack> {
       downloadedAt: downloadedAt ?? this.downloadedAt,
       sourceUrl: sourceUrl ?? this.sourceUrl,
       isUiKit: isUiKit ?? this.isUiKit,
+      isCustom: isCustom ?? this.isCustom,
     );
   }
 
@@ -491,6 +536,9 @@ class PacksCompanion extends UpdateCompanion<Pack> {
     if (isUiKit.present) {
       map['is_ui_kit'] = Variable<bool>(isUiKit.value);
     }
+    if (isCustom.present) {
+      map['is_custom'] = Variable<bool>(isCustom.value);
+    }
     return map;
   }
 
@@ -504,7 +552,8 @@ class PacksCompanion extends UpdateCompanion<Pack> {
           ..write('localPath: $localPath, ')
           ..write('downloadedAt: $downloadedAt, ')
           ..write('sourceUrl: $sourceUrl, ')
-          ..write('isUiKit: $isUiKit')
+          ..write('isUiKit: $isUiKit, ')
+          ..write('isCustom: $isCustom')
           ..write(')'))
         .toString();
   }
@@ -1096,6 +1145,7 @@ typedef $$PacksTableCreateCompanionBuilder =
       Value<DateTime?> downloadedAt,
       Value<String?> sourceUrl,
       Value<bool> isUiKit,
+      Value<bool> isCustom,
     });
 typedef $$PacksTableUpdateCompanionBuilder =
     PacksCompanion Function({
@@ -1107,6 +1157,7 @@ typedef $$PacksTableUpdateCompanionBuilder =
       Value<DateTime?> downloadedAt,
       Value<String?> sourceUrl,
       Value<bool> isUiKit,
+      Value<bool> isCustom,
     });
 
 final class $$PacksTableReferences
@@ -1178,6 +1229,11 @@ class $$PacksTableFilterComposer extends Composer<_$AppDatabase, $PacksTable> {
 
   ColumnFilters<bool> get isUiKit => $composableBuilder(
     column: $table.isUiKit,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isCustom => $composableBuilder(
+    column: $table.isCustom,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -1255,6 +1311,11 @@ class $$PacksTableOrderingComposer
     column: $table.isUiKit,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<bool> get isCustom => $composableBuilder(
+    column: $table.isCustom,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$PacksTableAnnotationComposer
@@ -1291,6 +1352,9 @@ class $$PacksTableAnnotationComposer
 
   GeneratedColumn<bool> get isUiKit =>
       $composableBuilder(column: $table.isUiKit, builder: (column) => column);
+
+  GeneratedColumn<bool> get isCustom =>
+      $composableBuilder(column: $table.isCustom, builder: (column) => column);
 
   Expression<T> assetsRefs<T extends Object>(
     Expression<T> Function($$AssetsTableAnnotationComposer a) f,
@@ -1354,6 +1418,7 @@ class $$PacksTableTableManager
                 Value<DateTime?> downloadedAt = const Value.absent(),
                 Value<String?> sourceUrl = const Value.absent(),
                 Value<bool> isUiKit = const Value.absent(),
+                Value<bool> isCustom = const Value.absent(),
               }) => PacksCompanion(
                 id: id,
                 name: name,
@@ -1363,6 +1428,7 @@ class $$PacksTableTableManager
                 downloadedAt: downloadedAt,
                 sourceUrl: sourceUrl,
                 isUiKit: isUiKit,
+                isCustom: isCustom,
               ),
           createCompanionCallback:
               ({
@@ -1374,6 +1440,7 @@ class $$PacksTableTableManager
                 Value<DateTime?> downloadedAt = const Value.absent(),
                 Value<String?> sourceUrl = const Value.absent(),
                 Value<bool> isUiKit = const Value.absent(),
+                Value<bool> isCustom = const Value.absent(),
               }) => PacksCompanion.insert(
                 id: id,
                 name: name,
@@ -1383,6 +1450,7 @@ class $$PacksTableTableManager
                 downloadedAt: downloadedAt,
                 sourceUrl: sourceUrl,
                 isUiKit: isUiKit,
+                isCustom: isCustom,
               ),
           withReferenceMapper: (p0) => p0
               .map(

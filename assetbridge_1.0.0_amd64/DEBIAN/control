@@ -1,0 +1,9 @@
+Package: assetbridge
+Version: 1.0.0
+Section: utils
+Priority: optional
+Architecture: amd64
+Depends: libgtk-3-0, libblkid1, liblzma5
+Maintainer: aswin
+Description: AssetBridge is a desktop icon management tool for Linux that pulls icon packs from GitHub or local ZIP files,
+ extracts them, and provides a fast, searchable interface for designers and developers.

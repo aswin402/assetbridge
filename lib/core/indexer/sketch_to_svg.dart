@@ -1,8 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:path/path.dart' as p;
-
 /// Converts a Sketch component layer (from unzipped JSON) to an SVG string
 /// that Lunacy accepts as native vectors when copy-pasted.
 class SketchToSvg {
