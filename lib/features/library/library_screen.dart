@@ -696,6 +696,30 @@ class _AssetTileState extends State<_AssetTile> {
   }
 
   Widget _buildPreview(BuildContext context) {
+    // For sketch components: render SVG inline instead of showing kit preview
+    // (all components share the same kit preview.png which shows everything)
+    if (isSketch && asset.metadata != null) {
+      try {
+        final meta = jsonDecode(asset.metadata!) as Map<String, dynamic>;
+        final type = meta['type'] as String?;
+        if (type == 'sketch_component' || type == 'sketch_kit') {
+          return _SketchComponentPreview(asset: asset, size: size);
+        }
+      } catch (_) {}
+    }
+
+    // Plain SVG icon — render directly
+    if (isSvg) {
+      return SvgPicture.file(
+        File(asset.filePath),
+        width: size * 0.55,
+        height: size * 0.55,
+        fit: BoxFit.contain,
+        errorBuilder: (_, __, ___) => _fallbackIcon(context),
+      );
+    }
+
+    // Standalone .sketch file with a preview image
     if (asset.previewPath != null) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(4),
@@ -708,33 +732,8 @@ class _AssetTileState extends State<_AssetTile> {
         ),
       );
     }
-    if (isSvg) {
-      return SvgPicture.file(
-        File(asset.filePath),
-        width: size * 0.55,
-        height: size * 0.55,
-        fit: BoxFit.contain,
-        errorBuilder: (_, __, ___) => _fallbackIcon(context),
-      );
-    }
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Icon(Icons.diamond_outlined, size: size * 0.45, color: Colors.orange),
-        if (size > 60) ...[
-          const SizedBox(height: 2),
-          Text(
-            asset.name,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  fontSize: 8,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ],
-      ],
-    );
+
+    return _fallbackIcon(context);
   }
 
   Widget _fallbackIcon(BuildContext context) => Icon(
@@ -833,6 +832,136 @@ class _LibraryEmptyState extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _SketchComponentPreview extends StatefulWidget {
+  const _SketchComponentPreview({
+    required this.asset,
+    required this.size,
+  });
+
+  final Asset asset;
+  final double size;
+
+  @override
+  State<_SketchComponentPreview> createState() =>
+      _SketchComponentPreviewState();
+}
+
+class _SketchComponentPreviewState extends State<_SketchComponentPreview> {
+  String? _svgString;
+  bool _loading = true;
+  bool _failed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSvg();
+  }
+
+  @override
+  void didUpdateWidget(_SketchComponentPreview old) {
+    super.didUpdateWidget(old);
+    if (old.asset.id != widget.asset.id) {
+      setState(() {
+        _svgString = null;
+        _loading = true;
+        _failed = false;
+      });
+      _loadSvg();
+    }
+  }
+
+  Future<void> _loadSvg() async {
+    try {
+      final meta =
+          jsonDecode(widget.asset.metadata!) as Map<String, dynamic>;
+      final type = meta['type'] as String?;
+      String? svg;
+
+      if (type == 'sketch_component') {
+        svg = await SketchToSvg.componentToSvg(
+          rootPath: meta['rootPath'] as String,
+          pagePath: meta['pagePath'] as String,
+          componentId: meta['id'] as String,
+        );
+      } else if (type == 'sketch_kit') {
+        // For kit entry: show the kit preview image if available,
+        // otherwise show first artboard SVG
+        if (widget.asset.previewPath != null &&
+            await File(widget.asset.previewPath!).exists()) {
+          if (mounted) setState(() => _loading = false);
+          return; // will fall through to Image.file in parent
+        }
+        svg = await _firstArtboardSvg(widget.asset.filePath);
+      }
+
+      if (mounted) {
+        setState(() {
+          _svgString = svg;
+          _loading = false;
+          _failed = svg == null;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() { _loading = false; _failed = true; });
+    }
+  }
+
+  Future<String?> _firstArtboardSvg(String kitPath) async {
+    final pagesDir = Directory(p.join(kitPath, 'pages'));
+    if (!await pagesDir.exists()) return null;
+    await for (final entity in pagesDir.list()) {
+      if (entity is! File || !entity.path.endsWith('.json')) continue;
+      try {
+        final json =
+            jsonDecode(await entity.readAsString()) as Map<String, dynamic>;
+        final layers = json['layers'] as List<dynamic>?;
+        if (layers == null) continue;
+        for (final layer in layers) {
+          if (layer is! Map<String, dynamic>) continue;
+          final cls = layer['_class'] as String?;
+          if (cls == 'artboard' || cls == 'symbolMaster' || cls == 'group') {
+            return SketchToSvg.artboardToSvg(layer);
+          }
+        }
+      } catch (_) {}
+    }
+    return null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return Center(
+        child: SizedBox(
+          width: widget.size * 0.3,
+          height: widget.size * 0.3,
+          child: const CircularProgressIndicator(strokeWidth: 1.5),
+        ),
+      );
+    }
+
+    if (_failed || _svgString == null) {
+      return Icon(
+        Icons.diamond_outlined,
+        size: widget.size * 0.45,
+        color: Colors.orange,
+      );
+    }
+
+    return SvgPicture.string(
+      _svgString!,
+      width: widget.size * 0.9,
+      height: widget.size * 0.9,
+      fit: BoxFit.contain,
+      errorBuilder: (_, __, ___) => Icon(
+        Icons.diamond_outlined,
+        size: widget.size * 0.45,
+        color: Colors.orange,
       ),
     );
   }
