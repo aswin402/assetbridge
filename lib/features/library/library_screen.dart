@@ -8,12 +8,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:super_clipboard/super_clipboard.dart';
 import 'package:super_drag_and_drop/super_drag_and_drop.dart';
-
 import 'package:path/path.dart' as p;
 
 import '../../core/database/app_database.dart';
 import '../../core/database/database_provider.dart';
 import '../../core/indexer/sketch_to_svg.dart';
+import '../../core/indexer/svg_cache.dart';
 import '../../core/paths/app_paths.dart';
 import '../../shared/widgets/category_chip.dart';
 import '../../shared/widgets/pack_sidebar_row.dart';
@@ -27,28 +27,18 @@ final _categories = ['All', 'Arrows', 'UI', 'Social', 'Shapes', 'More'];
 
 String? _categoryKeyword(String chip) {
   switch (chip) {
-    case 'Arrows':
-      return 'arrow';
-    case 'UI':
-      return 'ui';
-    case 'Social':
-      return 'social';
-    case 'Shapes':
-      return 'shape';
-    default:
-      return null;
+    case 'Arrows': return 'arrow';
+    case 'UI': return 'ui';
+    case 'Social': return 'social';
+    case 'Shapes': return 'shape';
+    default: return null;
   }
 }
-
-// ---------------------------------------------------------------------------
-
 
 bool _assetIsSvg(Asset asset) =>
     asset.filePath.toLowerCase().endsWith('.svg');
 
 bool _assetIsSketch(Asset asset) {
-  // A sketch asset is either a standalone .sketch file OR a kit/component
-  // whose filePath is a directory (we detect via metadata type).
   if (asset.filePath.toLowerCase().endsWith('.sketch')) return true;
   if (asset.metadata == null) return false;
   try {
@@ -59,8 +49,6 @@ bool _assetIsSketch(Asset asset) {
     return false;
   }
 }
-
-// ---------------------------------------------------------------------------
 
 class LibraryScreen extends ConsumerStatefulWidget {
   const LibraryScreen({super.key});
@@ -87,8 +75,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 200), () {
       if (!mounted) return;
-      setState(
-          () => _debouncedSearch = _searchController.text.trim().toLowerCase());
+      setState(() => _debouncedSearch = _searchController.text.trim().toLowerCase());
     });
   }
 
@@ -97,13 +84,9 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete pack?'),
-        content: Text(
-            'This will remove "${pack.name}" and all its icons from your library.'),
+        content: Text('This will remove "${pack.name}" and all its icons from your library.'),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
             style: FilledButton.styleFrom(
@@ -115,10 +98,8 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
         ],
       ),
     );
-
     if (confirmed == true && mounted) {
-      final slug =
-          pack.name.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '_');
+      final slug = pack.name.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '_');
       ref.read(packInstallProvider.notifier).delete(pack.name, slug);
     }
   }
@@ -137,10 +118,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
       if (_disabledPackIds.contains(a.packId)) return false;
       if (_debouncedSearch.isNotEmpty) {
         final q = _debouncedSearch;
-        if (!a.name.toLowerCase().contains(q) &&
-            !a.tags.toLowerCase().contains(q)) {
-          return false;
-        }
+        if (!a.name.toLowerCase().contains(q) && !a.tags.toLowerCase().contains(q)) return false;
       }
       if (kw != null && !a.tags.toLowerCase().contains(kw)) return false;
       return true;
@@ -157,9 +135,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
       next.whenData((packs) {
         final valid = packs.map((p) => p.id).toSet();
         final stale = _disabledPackIds.difference(valid);
-        if (stale.isNotEmpty && mounted) {
-          setState(() => _disabledPackIds.removeAll(stale));
-        }
+        if (stale.isNotEmpty && mounted) setState(() => _disabledPackIds.removeAll(stale));
       });
     });
 
@@ -172,21 +148,15 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
               child: Row(
                 children: [
-                  Text(
-                    'AssetBridge',
+                  Text('AssetBridge',
                     style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
+                      fontSize: 18, fontWeight: FontWeight.w700,
                       letterSpacing: -0.5,
                       color: Theme.of(context).colorScheme.onSurface,
                     ),
                   ),
                   const SizedBox(width: 32),
-                  Expanded(
-                    child: LibrarySearchBar(
-                      controller: _searchController,
-                    ),
-                  ),
+                  Expanded(child: LibrarySearchBar(controller: _searchController)),
                   const SizedBox(width: 12),
                   IconButton(
                     onPressed: () {
@@ -224,52 +194,35 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                             Expanded(
                               child: SingleChildScrollView(
                                 child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.stretch,
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
                                   children: [
                                     _sectionLabel(context, 'ICON PACKS'),
                                     const SizedBox(height: 8),
                                     packsAsync.when(
                                       loading: () => const SizedBox.shrink(),
-                                      error: (e, _) =>
-                                          Center(child: Text('$e')),
+                                      error: (e, _) => Center(child: Text('$e')),
                                       data: (packs) {
-                                        final icons = packs
-                                            .where((p) => !p.isUiKit)
-                                            .toList();
-                                        if (icons.isEmpty) {
-                                          return _emptyLabel(context,
-                                              'No icon packs installed.');
-                                        }
+                                        final icons = packs.where((p) => !p.isUiKit).toList();
+                                        if (icons.isEmpty) return _emptyLabel(context, 'No icon packs installed.');
                                         return ListView.builder(
                                           shrinkWrap: true,
-                                          physics:
-                                              const NeverScrollableScrollPhysics(),
+                                          physics: const NeverScrollableScrollPhysics(),
                                           itemCount: icons.length,
                                           itemBuilder: (context, i) {
                                             final pack = icons[i];
-                                            final enabled =
-                                                !_disabledPackIds
-                                                    .contains(pack.id);
+                                            final enabled = !_disabledPackIds.contains(pack.id);
                                             return PackSidebarRow(
                                               title: pack.name,
-                                              countLabel:
-                                                  '${pack.iconCount}',
+                                              countLabel: '${pack.iconCount}',
                                               enabled: enabled,
                                               onChanged: (v) {
                                                 if (v == null) return;
                                                 setState(() {
-                                                  if (v!) {
-                                                    _disabledPackIds
-                                                        .remove(pack.id);
-                                                  } else {
-                                                    _disabledPackIds
-                                                        .add(pack.id);
-                                                  }
+                                                  if (v) _disabledPackIds.remove(pack.id);
+                                                  else _disabledPackIds.add(pack.id);
                                                 });
                                               },
-                                              onDelete: () =>
-                                                  _confirmDeletePack(pack),
+                                              onDelete: () => _confirmDeletePack(pack),
                                             );
                                           },
                                         );
@@ -279,47 +232,30 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                                     _sectionLabel(context, 'UI KITS'),
                                     const SizedBox(height: 8),
                                     packsAsync.when(
-                                      loading: () =>
-                                          const SizedBox.shrink(),
-                                      error: (e, _) =>
-                                          const SizedBox.shrink(),
+                                      loading: () => const SizedBox.shrink(),
+                                      error: (e, _) => const SizedBox.shrink(),
                                       data: (packs) {
-                                        final kits = packs
-                                            .where((p) => p.isUiKit)
-                                            .toList();
-                                        if (kits.isEmpty) {
-                                          return _emptyLabel(
-                                              context, 'No UI kits added.');
-                                        }
+                                        final kits = packs.where((p) => p.isUiKit).toList();
+                                        if (kits.isEmpty) return _emptyLabel(context, 'No UI kits added.');
                                         return ListView.builder(
                                           shrinkWrap: true,
-                                          physics:
-                                              const NeverScrollableScrollPhysics(),
+                                          physics: const NeverScrollableScrollPhysics(),
                                           itemCount: kits.length,
                                           itemBuilder: (context, i) {
                                             final pack = kits[i];
-                                            final enabled =
-                                                !_disabledPackIds
-                                                    .contains(pack.id);
+                                            final enabled = !_disabledPackIds.contains(pack.id);
                                             return PackSidebarRow(
                                               title: pack.name,
-                                              countLabel:
-                                                  '${pack.iconCount}',
+                                              countLabel: '${pack.iconCount}',
                                               enabled: enabled,
                                               onChanged: (v) {
                                                 if (v == null) return;
                                                 setState(() {
-                                                  if (v!) {
-                                                    _disabledPackIds
-                                                        .remove(pack.id);
-                                                  } else {
-                                                    _disabledPackIds
-                                                        .add(pack.id);
-                                                  }
+                                                  if (v) _disabledPackIds.remove(pack.id);
+                                                  else _disabledPackIds.add(pack.id);
                                                 });
                                               },
-                                              onDelete: () =>
-                                                  _confirmDeletePack(pack),
+                                              onDelete: () => _confirmDeletePack(pack),
                                             );
                                           },
                                         );
@@ -333,10 +269,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                             FilledButton.tonal(
                               onPressed: () {
                                 Navigator.of(context).push<void>(
-                                  MaterialPageRoute(
-                                    builder: (_) =>
-                                        const DownloaderScreen(),
-                                  ),
+                                  MaterialPageRoute(builder: (_) => const DownloaderScreen()),
                                 );
                               },
                               style: FilledButton.styleFrom(
@@ -363,21 +296,18 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         Padding(
-                          padding:
-                              const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
                           child: SingleChildScrollView(
                             scrollDirection: Axis.horizontal,
                             child: Row(
                               children: [
                                 for (final c in _categories)
                                   Padding(
-                                    padding:
-                                        const EdgeInsets.only(right: 6),
+                                    padding: const EdgeInsets.only(right: 6),
                                     child: CategoryChip(
                                       label: c,
                                       selected: _selectedCategory == c,
-                                      onSelected: (_) => setState(
-                                          () => _selectedCategory = c),
+                                      onSelected: (_) => setState(() => _selectedCategory = c),
                                     ),
                                   ),
                               ],
@@ -385,8 +315,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                           ),
                         ),
                         Padding(
-                          padding:
-                              const EdgeInsets.fromLTRB(16, 4, 16, 4),
+                          padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
                           child: Row(
                             children: [
                               const Icon(Icons.grid_view_rounded, size: 14, color: Colors.grey),
@@ -403,8 +332,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                                     min: 48,
                                     max: 120,
                                     divisions: 12,
-                                    onChanged: (v) =>
-                                        setState(() => _gridExtent = v),
+                                    onChanged: (v) => setState(() => _gridExtent = v),
                                   ),
                                 ),
                               ),
@@ -413,10 +341,8 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                         ),
                         Expanded(
                           child: assetsAsync.when(
-                            loading: () => const Center(
-                                child: CircularProgressIndicator()),
-                            error: (e, _) =>
-                                Center(child: Text('$e')),
+                            loading: () => const Center(child: CircularProgressIndicator()),
+                            error: (e, _) => Center(child: Text('$e')),
                             data: (assets) {
                               final filtered = _filterAssets(assets);
                               if (assets.isEmpty) {
@@ -430,31 +356,30 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                               }
                               if (filtered.isEmpty) {
                                 return Center(
-                                  child: Text(
-                                    'No icons match filters.',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodyLarge
-                                        ?.copyWith(
-                                          color: Theme.of(context)
-                                              .colorScheme
-                                              .onSurfaceVariant,
-                                        ),
+                                  child: Text('No icons match filters.',
+                                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                    ),
                                   ),
                                 );
                               }
                               return GridView.builder(
                                 padding: const EdgeInsets.all(16),
-                                gridDelegate:
-                                    SliverGridDelegateWithMaxCrossAxisExtent(
+                                gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
                                   maxCrossAxisExtent: _gridExtent,
                                   mainAxisSpacing: 8,
                                   crossAxisSpacing: 8,
                                   childAspectRatio: 1,
                                 ),
                                 itemCount: filtered.length,
+                                // KEY FIX: addRepaintBoundaries isolates repaints
+                                // addAutomaticKeepAlives: false releases memory for
+                                // off-screen sketch preview widgets
+                                addAutomaticKeepAlives: false,
+                                addRepaintBoundaries: true,
                                 itemBuilder: (context, i) {
                                   return _AssetTile(
+                                    key: ValueKey(filtered[i].id),
                                     asset: filtered[i],
                                     size: _gridExtent,
                                   );
@@ -476,24 +401,20 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
   }
 
   Widget _sectionLabel(BuildContext context, String text) => Padding(
-        padding: const EdgeInsets.only(left: 8, bottom: 4),
-        child: Text(
-          text,
-          style: TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 1.1,
-            color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
-          ),
-        ),
-      );
+    padding: const EdgeInsets.only(left: 8, bottom: 4),
+    child: Text(text,
+      style: TextStyle(
+        fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 1.1,
+        color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+      ),
+    ),
+  );
 
-  Widget _emptyLabel(BuildContext context, String text) => Text(
-        text,
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-      );
+  Widget _emptyLabel(BuildContext context, String text) => Text(text,
+    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+      color: Theme.of(context).colorScheme.onSurfaceVariant,
+    ),
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -501,7 +422,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
 // ---------------------------------------------------------------------------
 
 class _AssetTile extends StatefulWidget {
-  const _AssetTile({required this.asset, required this.size});
+  const _AssetTile({super.key, required this.asset, required this.size});
 
   final Asset asset;
   final double size;
@@ -515,26 +436,15 @@ class _AssetTileState extends State<_AssetTile> {
 
   Asset get asset => widget.asset;
   double get size => widget.size;
-
   bool get isSvg => _assetIsSvg(asset);
   bool get isSketch => _assetIsSketch(asset);
 
-  // ── Tap handler ─────────────────────────────────────────────────────────────
-
   Future<void> _handleTap() async {
-    if (isSvg) {
-      await _copySvgSource();
-      return;
-    }
-    if (isSketch) {
-      await _copySketchAsSvg();
-      return;
-    }
-    // Fallback for unknown types
+    if (isSvg) { await _copySvgSource(); return; }
+    if (isSketch) { await _copySketchAsSvg(); return; }
     await _copyRawPath();
   }
 
-  /// SVG icon — copy raw file content (works perfectly, keep as-is)
   Future<void> _copySvgSource() async {
     try {
       final content = await File(asset.filePath).readAsString();
@@ -545,35 +455,14 @@ class _AssetTileState extends State<_AssetTile> {
     }
   }
 
-  /// Sketch component or kit — convert JSON layer tree → SVG → paste as text.
-  /// Lunacy will paste it as native vectors, identical to pasting any SVG.
   Future<void> _copySketchAsSvg() async {
     setState(() => _extracting = true);
     try {
-      String? svgText;
-
-      if (asset.metadata != null) {
-        final meta = jsonDecode(asset.metadata!) as Map<String, dynamic>;
-        final type = meta['type'] as String?;
-
-        if (type == 'sketch_component') {
-          // Convert the specific component layer to SVG
-          svgText = await SketchToSvg.componentToSvg(
-            rootPath: meta['rootPath'] as String,
-            pagePath: meta['pagePath'] as String,
-            componentId: meta['id'] as String,
-          );
-        } else if (type == 'sketch_kit' || type == 'sketch_file') {
-          // For a full kit tile: convert the first artboard found
-          svgText = await _firstArtboardAsSvg(asset.filePath);
-        }
-      }
-
+      final svgText = await _resolveSvg();
       if (svgText == null || svgText.isEmpty) {
         _snack('Could not convert ${asset.name} to SVG');
         return;
       }
-
       await Clipboard.setData(ClipboardData(text: svgText));
       _snack('Copied as SVG: ${asset.name} — paste into Lunacy');
     } catch (e) {
@@ -583,31 +472,49 @@ class _AssetTileState extends State<_AssetTile> {
     }
   }
 
-  /// Reads the first artboard from an unzipped sketch dir and converts it.
+  /// Central SVG resolver — checks cache first, then converts.
+  Future<String?> _resolveSvg() async {
+    // Check cache first
+    if (SvgPreviewCache.instance.has(asset.id)) {
+      return SvgPreviewCache.instance.get(asset.id);
+    }
+
+    if (asset.metadata == null) return null;
+    final meta = jsonDecode(asset.metadata!) as Map<String, dynamic>;
+    final type = meta['type'] as String?;
+    String? svg;
+
+    if (type == 'sketch_component') {
+      svg = await SketchToSvg.componentToSvg(
+        rootPath: meta['rootPath'] as String,
+        pagePath: meta['pagePath'] as String,
+        componentId: meta['id'] as String,
+      );
+    } else if (type == 'sketch_kit' || type == 'sketch_file') {
+      svg = await _firstArtboardAsSvg(asset.filePath);
+    }
+
+    if (svg != null) SvgPreviewCache.instance.set(asset.id, svg);
+    return svg;
+  }
+
   Future<String?> _firstArtboardAsSvg(String kitPath) async {
     final pagesDir = Directory(p.join(kitPath, 'pages'));
     if (!await pagesDir.exists()) return null;
-
     await for (final entity in pagesDir.list()) {
-      if (entity is! File) continue;
-      if (!entity.path.endsWith('.json')) continue;
-
+      if (entity is! File || !entity.path.endsWith('.json')) continue;
       try {
-        final json =
-            jsonDecode(await entity.readAsString()) as Map<String, dynamic>;
+        final json = jsonDecode(await entity.readAsString()) as Map<String, dynamic>;
         final layers = json['layers'] as List<dynamic>?;
         if (layers == null) continue;
-
         for (final layer in layers) {
           if (layer is! Map<String, dynamic>) continue;
           final cls = layer['_class'] as String?;
-          if (cls == 'artboard' || cls == 'symbolMaster') {
+          if (cls == 'artboard' || cls == 'symbolMaster' || cls == 'group') {
             return SketchToSvg.artboardToSvg(layer);
           }
         }
-      } catch (_) {
-        continue;
-      }
+      } catch (_) {}
     }
     return null;
   }
@@ -629,33 +536,14 @@ class _AssetTileState extends State<_AssetTile> {
     );
   }
 
-  // ── Drag handler ─────────────────────────────────────────────────────────────
-  //
-  // Same approach: for Sketch assets, convert to SVG then write SVG text to
-  // a temp file and drag that file. Lunacy reads the dropped SVG file.
-
   Future<DragItem?> _buildDragItem(DragItemRequest request) async {
-    String? svgText;
     String? filePath;
 
     if (isSvg) {
       filePath = asset.filePath;
-    } else if (isSketch && asset.metadata != null) {
-      final meta = jsonDecode(asset.metadata!) as Map<String, dynamic>;
-      final type = meta['type'] as String?;
-
-      if (type == 'sketch_component') {
-        svgText = await SketchToSvg.componentToSvg(
-          rootPath: meta['rootPath'] as String,
-          pagePath: meta['pagePath'] as String,
-          componentId: meta['id'] as String,
-        );
-      } else if (type == 'sketch_kit' || type == 'sketch_file') {
-        svgText = await _firstArtboardAsSvg(asset.filePath);
-      }
-
+    } else if (isSketch) {
+      final svgText = await _resolveSvg();
       if (svgText != null) {
-        // Write SVG to temp file so we can drag a real file
         final tempFile = File(p.join(
           AppPaths.thumbnailsRoot,
           '${asset.name.replaceAll(RegExp(r'[^\w]'), '_')}_drag.svg',
@@ -666,28 +554,21 @@ class _AssetTileState extends State<_AssetTile> {
     }
 
     if (filePath == null) return null;
-    final file = File(filePath);
-    if (!await file.exists()) return null;
+    if (!await File(filePath).exists()) return null;
 
     final item = DragItem(localData: filePath);
     item.add(Formats.fileUri(Uri.file(filePath)));
     return item;
   }
 
-  // ── Build ────────────────────────────────────────────────────────────────────
-
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-
     final tileContent = Container(
       decoration: BoxDecoration(
         color: colorScheme.surface,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: colorScheme.outlineVariant.withValues(alpha: 0.3),
-          width: 0.5,
-        ),
+        border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.3), width: 0.5),
       ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -701,13 +582,7 @@ class _AssetTileState extends State<_AssetTile> {
           child: Padding(
             padding: const EdgeInsets.all(8),
             child: _extracting
-                ? const Center(
-                    child: SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 1.5),
-                    ),
-                  )
+                ? const Center(child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 1.5)))
                 : _buildPreview(context),
           ),
         ),
@@ -722,8 +597,6 @@ class _AssetTileState extends State<_AssetTile> {
   }
 
   Widget _buildPreview(BuildContext context) {
-    // For sketch components: render SVG inline instead of showing kit preview
-    // (all components share the same kit preview.png which shows everything)
     if (isSketch && asset.metadata != null) {
       try {
         final meta = jsonDecode(asset.metadata!) as Map<String, dynamic>;
@@ -734,7 +607,6 @@ class _AssetTileState extends State<_AssetTile> {
       } catch (_) {}
     }
 
-    // Plain SVG icon — render directly
     if (isSvg) {
       return SvgPicture.file(
         File(asset.filePath),
@@ -745,7 +617,6 @@ class _AssetTileState extends State<_AssetTile> {
       );
     }
 
-    // Standalone .sketch file with a preview image
     if (asset.previewPath != null) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(4),
@@ -763,10 +634,10 @@ class _AssetTileState extends State<_AssetTile> {
   }
 
   Widget _fallbackIcon(BuildContext context) => Icon(
-        Icons.broken_image_outlined,
-        size: size * 0.35,
-        color: Theme.of(context).colorScheme.outline,
-      );
+    Icons.diamond_outlined,
+    size: size * 0.45,
+    color: Colors.orange,
+  );
 
   void _showContextMenu(TapDownDetails details) {
     final pos = details.globalPosition;
@@ -774,36 +645,20 @@ class _AssetTileState extends State<_AssetTile> {
       context: context,
       position: RelativeRect.fromLTRB(pos.dx, pos.dy, pos.dx, pos.dy),
       items: [
-        if (isSvg)
-          PopupMenuItem(
-            onTap: _copySvgSource,
-            child: const ListTile(
-              leading: Icon(Icons.code, size: 18),
-              title: Text('Copy SVG source'),
-              dense: true,
-            ),
-          ),
-        if (isSketch)
-          PopupMenuItem(
-            onTap: _copySketchAsSvg,
-            child: const ListTile(
-              leading: Icon(Icons.content_copy_outlined, size: 18),
-              title: Text('Copy as SVG (paste into Lunacy)'),
-              dense: true,
-            ),
-          ),
+        if (isSvg) PopupMenuItem(
+          onTap: _copySvgSource,
+          child: const ListTile(leading: Icon(Icons.code, size: 18), title: Text('Copy SVG source'), dense: true),
+        ),
+        if (isSketch) PopupMenuItem(
+          onTap: _copySketchAsSvg,
+          child: const ListTile(leading: Icon(Icons.content_copy_outlined, size: 18), title: Text('Copy as SVG (paste into Lunacy)'), dense: true),
+        ),
         PopupMenuItem(
           onTap: () async {
-            final dir = isSvg
-                ? File(asset.filePath).parent.path
-                : asset.filePath; // kit filePath IS the directory
+            final dir = isSvg ? File(asset.filePath).parent.path : asset.filePath;
             await Process.run('xdg-open', [dir]);
           },
-          child: const ListTile(
-            leading: Icon(Icons.folder_open_outlined, size: 18),
-            title: Text('Show in Files'),
-            dense: true,
-          ),
+          child: const ListTile(leading: Icon(Icons.folder_open_outlined, size: 18), title: Text('Show in Files'), dense: true),
         ),
       ],
     );
@@ -811,70 +666,17 @@ class _AssetTileState extends State<_AssetTile> {
 }
 
 // ---------------------------------------------------------------------------
-// Empty state
+// Sketch preview widget — lazy + throttled + cached
 // ---------------------------------------------------------------------------
 
-class _LibraryEmptyState extends StatelessWidget {
-  const _LibraryEmptyState({
-    required this.gridExtent,
-    required this.hasPacks,
-  });
-
-  final double gridExtent;
-  final bool hasPacks;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.photo_library_outlined,
-              size: 64,
-              color: Theme.of(context)
-                  .colorScheme
-                  .primary
-                  .withValues(alpha: 0.45),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              hasPacks ? 'No assets indexed yet' : 'No packs yet',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              hasPacks
-                  ? 'Something went wrong indexing, or the pack folder is empty.'
-                  : 'Use Add Pack to download an icon pack or add a UI Kit.\n'
-                      'Data: ${AppPaths.dataRoot}',
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color:
-                        Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _SketchComponentPreview extends StatefulWidget {
-  const _SketchComponentPreview({
-    required this.asset,
-    required this.size,
-  });
+  const _SketchComponentPreview({required this.asset, required this.size});
 
   final Asset asset;
   final double size;
 
   @override
-  State<_SketchComponentPreview> createState() =>
-      _SketchComponentPreviewState();
+  State<_SketchComponentPreview> createState() => _SketchComponentPreviewState();
 }
 
 class _SketchComponentPreviewState extends State<_SketchComponentPreview> {
@@ -892,19 +694,29 @@ class _SketchComponentPreviewState extends State<_SketchComponentPreview> {
   void didUpdateWidget(_SketchComponentPreview old) {
     super.didUpdateWidget(old);
     if (old.asset.id != widget.asset.id) {
-      setState(() {
-        _svgString = null;
-        _loading = true;
-        _failed = false;
-      });
+      setState(() { _svgString = null; _loading = true; _failed = false; });
       _loadSvg();
     }
   }
 
   Future<void> _loadSvg() async {
+    // Check cache first — no async work needed
+    if (SvgPreviewCache.instance.has(widget.asset.id)) {
+      if (mounted) {
+        setState(() {
+          _svgString = SvgPreviewCache.instance.get(widget.asset.id);
+          _loading = false;
+        });
+      }
+      return;
+    }
+
+    // Throttle: max 4 concurrent conversions via semaphore
+    await svgLoadSemaphore.acquire();
     try {
-      final meta =
-          jsonDecode(widget.asset.metadata!) as Map<String, dynamic>;
+      if (!mounted) return;
+
+      final meta = jsonDecode(widget.asset.metadata!) as Map<String, dynamic>;
       final type = meta['type'] as String?;
       String? svg;
 
@@ -915,15 +727,17 @@ class _SketchComponentPreviewState extends State<_SketchComponentPreview> {
           componentId: meta['id'] as String,
         );
       } else if (type == 'sketch_kit') {
-        // For kit entry: show the kit preview image if available,
-        // otherwise show first artboard SVG
+        // Show preview image for kit entry if available
         if (widget.asset.previewPath != null &&
             await File(widget.asset.previewPath!).exists()) {
           if (mounted) setState(() => _loading = false);
-          return; // will fall through to Image.file in parent
+          return;
         }
         svg = await _firstArtboardSvg(widget.asset.filePath);
       }
+
+      // Cache it
+      if (svg != null) SvgPreviewCache.instance.set(widget.asset.id, svg);
 
       if (mounted) {
         setState(() {
@@ -934,6 +748,8 @@ class _SketchComponentPreviewState extends State<_SketchComponentPreview> {
       }
     } catch (_) {
       if (mounted) setState(() { _loading = false; _failed = true; });
+    } finally {
+      svgLoadSemaphore.release();
     }
   }
 
@@ -943,8 +759,7 @@ class _SketchComponentPreviewState extends State<_SketchComponentPreview> {
     await for (final entity in pagesDir.list()) {
       if (entity is! File || !entity.path.endsWith('.json')) continue;
       try {
-        final json =
-            jsonDecode(await entity.readAsString()) as Map<String, dynamic>;
+        final json = jsonDecode(await entity.readAsString()) as Map<String, dynamic>;
         final layers = json['layers'] as List<dynamic>?;
         if (layers == null) continue;
         for (final layer in layers) {
@@ -971,12 +786,22 @@ class _SketchComponentPreviewState extends State<_SketchComponentPreview> {
       );
     }
 
-    if (_failed || _svgString == null) {
-      return Icon(
-        Icons.diamond_outlined,
-        size: widget.size * 0.45,
-        color: Colors.orange,
+    // Kit with preview image
+    if (!_failed && _svgString == null && widget.asset.previewPath != null) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(4),
+        child: Image.file(
+          File(widget.asset.previewPath!),
+          fit: BoxFit.cover,
+          width: double.infinity,
+          height: double.infinity,
+          errorBuilder: (_, __, ___) => Icon(Icons.diamond_outlined, size: widget.size * 0.45, color: Colors.orange),
+        ),
       );
+    }
+
+    if (_failed || _svgString == null) {
+      return Icon(Icons.diamond_outlined, size: widget.size * 0.45, color: Colors.orange);
     }
 
     return SvgPicture.string(
@@ -984,10 +809,45 @@ class _SketchComponentPreviewState extends State<_SketchComponentPreview> {
       width: widget.size * 0.9,
       height: widget.size * 0.9,
       fit: BoxFit.contain,
-      errorBuilder: (_, __, ___) => Icon(
-        Icons.diamond_outlined,
-        size: widget.size * 0.45,
-        color: Colors.orange,
+      errorBuilder: (_, __, ___) => Icon(Icons.diamond_outlined, size: widget.size * 0.45, color: Colors.orange),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Empty state
+// ---------------------------------------------------------------------------
+
+class _LibraryEmptyState extends StatelessWidget {
+  const _LibraryEmptyState({required this.gridExtent, required this.hasPacks});
+
+  final double gridExtent;
+  final bool hasPacks;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.photo_library_outlined, size: 64,
+              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.45)),
+            const SizedBox(height: 16),
+            Text(hasPacks ? 'No assets indexed yet' : 'No packs yet',
+              style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 8),
+            Text(
+              hasPacks
+                  ? 'Something went wrong indexing, or the pack folder is empty.'
+                  : 'Use Add Pack to download an icon pack or add a UI Kit.\nData: ${AppPaths.dataRoot}',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant),
+            ),
+          ],
+        ),
       ),
     );
   }
