@@ -61,7 +61,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
   final _searchController = TextEditingController();
   Timer? _debounce;
   String _debouncedSearch = '';
-  final Set<int> _disabledPackIds = {};
+  int? _selectedPackId;
   var _selectedCategory = 'All';
   double _gridExtent = 72;
 
@@ -115,7 +115,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
   List<Asset> _filterAssets(List<Asset> rows) {
     final kw = _categoryKeyword(_selectedCategory);
     return rows.where((a) {
-      if (_disabledPackIds.contains(a.packId)) return false;
+      if (_selectedPackId != null && a.packId != _selectedPackId) return false;
       if (_debouncedSearch.isNotEmpty) {
         final q = _debouncedSearch;
         if (!a.name.toLowerCase().contains(q) && !a.tags.toLowerCase().contains(q)) return false;
@@ -133,9 +133,10 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
 
     ref.listen(packsStreamProvider, (prev, next) {
       next.whenData((packs) {
-        final valid = packs.map((p) => p.id).toSet();
-        final stale = _disabledPackIds.difference(valid);
-        if (stale.isNotEmpty && mounted) setState(() => _disabledPackIds.removeAll(stale));
+        if (_selectedPackId != null) {
+          final exists = packs.any((p) => p.id == _selectedPackId);
+          if (!exists && mounted) setState(() => _selectedPackId = null);
+        }
       });
     });
 
@@ -203,28 +204,36 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                                       error: (e, _) => Center(child: Text('$e')),
                                       data: (packs) {
                                         final icons = packs.where((p) => !p.isUiKit).toList();
-                                        if (icons.isEmpty) return _emptyLabel(context, 'No icon packs installed.');
-                                        return ListView.builder(
-                                          shrinkWrap: true,
-                                          physics: const NeverScrollableScrollPhysics(),
-                                          itemCount: icons.length,
-                                          itemBuilder: (context, i) {
-                                            final pack = icons[i];
-                                            final enabled = !_disabledPackIds.contains(pack.id);
-                                            return PackSidebarRow(
-                                              title: pack.name,
-                                              countLabel: '${pack.iconCount}',
-                                              enabled: enabled,
-                                              onChanged: (v) {
-                                                if (v == null) return;
-                                                setState(() {
-                                                  if (v) _disabledPackIds.remove(pack.id);
-                                                  else _disabledPackIds.add(pack.id);
-                                                });
-                                              },
-                                              onDelete: () => _confirmDeletePack(pack),
-                                            );
-                                          },
+                                        return Column(
+                                          children: [
+                                            PackSidebarRow(
+                                              title: 'All Assets',
+                                              countLabel: '${packs.fold(0, (sum, p) => sum + p.iconCount)}',
+                                              selected: _selectedPackId == null,
+                                              showIcon: false,
+                                              onTap: () => setState(() => _selectedPackId = null),
+                                            ),
+                                            if (icons.isEmpty)
+                                              _emptyLabel(context, 'No icon packs installed.')
+                                            else
+                                              ListView.builder(
+                                                shrinkWrap: true,
+                                                physics: const NeverScrollableScrollPhysics(),
+                                                itemCount: icons.length,
+                                                itemBuilder: (context, i) {
+                                                  final pack = icons[i];
+                                                  return PackSidebarRow(
+                                                    title: pack.name,
+                                                    countLabel: '${pack.iconCount}',
+                                                    selected: _selectedPackId == pack.id,
+                                                    onTap: () => setState(() {
+                                                      _selectedPackId = (_selectedPackId == pack.id) ? null : pack.id;
+                                                    }),
+                                                    onDelete: () => _confirmDeletePack(pack),
+                                                  );
+                                                },
+                                              ),
+                                          ],
                                         );
                                       },
                                     ),
@@ -243,18 +252,13 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                                           itemCount: kits.length,
                                           itemBuilder: (context, i) {
                                             final pack = kits[i];
-                                            final enabled = !_disabledPackIds.contains(pack.id);
                                             return PackSidebarRow(
                                               title: pack.name,
                                               countLabel: '${pack.iconCount}',
-                                              enabled: enabled,
-                                              onChanged: (v) {
-                                                if (v == null) return;
-                                                setState(() {
-                                                  if (v) _disabledPackIds.remove(pack.id);
-                                                  else _disabledPackIds.add(pack.id);
-                                                });
-                                              },
+                                              selected: _selectedPackId == pack.id,
+                                              onTap: () => setState(() {
+                                                _selectedPackId = (_selectedPackId == pack.id) ? null : pack.id;
+                                              }),
                                               onDelete: () => _confirmDeletePack(pack),
                                             );
                                           },
