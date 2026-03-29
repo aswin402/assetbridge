@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:archive/archive_io.dart';
 import 'package:dio/dio.dart';
 import 'package:drift/drift.dart';
 import 'package:path/path.dart' as p;
@@ -34,13 +35,20 @@ class PackInstaller {
     final client = GitHubReleaseClient(_dio);
     onProgress?.call('Fetching release…', null);
 
-    final release = await client.fetchLatestRelease(
+    var release = await client.fetchLatestRelease(
       owner: owner,
       repo: repo,
       cancelToken: cancelToken,
     );
+
+    // Fallback if no formal release is found (e.g., material-icons source)
     if (release == null) {
-      throw StateError('No GitHub release for $owner/$repo');
+      release = GitHubRelease(
+        tagName: 'master',
+        htmlUrl: 'https://github.com/$owner/$repo',
+        zipballUrl: 'https://github.com/$owner/$repo/archive/refs/heads/master.zip',
+        assets: [],
+      );
     }
 
     // Check for .sketch assets first if it's a UI kit or if we want to be flexible
@@ -96,12 +104,13 @@ class PackInstaller {
         onProgress?.call('Extracting Sketch bundle…', null);
         final kitFolder = p.join(packDir, config.slug);
         await Directory(kitFolder).create(recursive: true);
-        final bytes = await zipFile.readAsBytes();
-        await extractZipBytes(bytes, kitFolder);
+        // Use file-based streaming extraction for .sketch as well
+        await extractZipFile(zipFile.path, kitFolder);
       } else {
         onProgress?.call('Extracting…', null);
-        final bytes = await zipFile.readAsBytes();
-        await extractZipBytes(bytes, packDir);
+        // Use file-based streaming extraction directly from the temp file.
+        // This avoids readAsBytes RAM usage — critical for large packs.
+        await extractZipFile(zipFile.path, packDir);
       }
 
       if (cancelToken?.isCancelled ?? false) {
@@ -128,11 +137,6 @@ class PackInstaller {
   }
 
   /// Installs a pack from a local ZIP or Sketch file.
-  ///
-  /// KEY FIX: A `.sketch` file is actually a zip bundle containing
-  /// `document.json`, `pages/`, `images/` etc.
-  /// We extract it so [SvgIndexer] can detect it as a Sketch library
-  /// and properly index all components.
   Future<void> installLocal({
     required File zipFile,
     required String name,
@@ -155,22 +159,14 @@ class PackInstaller {
       final isSketch = zipFile.path.toLowerCase().endsWith('.sketch');
 
       if (isSketch) {
-        // .sketch IS a zip — extract into a named subfolder so that
-        // _isSketchLibraryDir() finds document.json at:
-        //   packDir/slug/document.json
-        //   packDir/slug/pages/
         onProgress?.call('Extracting Sketch bundle…', null);
         final kitFolder = p.join(packDir, slug);
         await Directory(kitFolder).create(recursive: true);
-        final bytes = await zipFile.readAsBytes();
-        await extractZipBytes(bytes, kitFolder);
-
-        // Always treat extracted .sketch as a UI kit
+        await extractZipFile(zipFile.path, kitFolder);
         isUiKit = true;
       } else {
         onProgress?.call('Extracting…', null);
-        final bytes = await zipFile.readAsBytes();
-        await extractZipBytes(bytes, packDir);
+        await extractZipFile(zipFile.path, packDir);
       }
 
       await _finishInstallation(
@@ -192,7 +188,6 @@ class PackInstaller {
   }
 
   /// Links an existing local directory as a custom library.
-  /// No files are copied or extracted; we just index the existing directory.
   Future<void> installCustomLibrary({
     required String name,
     required String path,
@@ -200,8 +195,6 @@ class PackInstaller {
     void Function(String phase, double? fraction)? onProgress,
   }) async {
     final slug = name.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '_');
-
-    // Deleting by name handles replacement/refresh cases
     await _db.deletePackByName(name);
 
     await _finishInstallation(

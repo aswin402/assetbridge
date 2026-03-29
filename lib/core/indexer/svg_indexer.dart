@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:archive/archive.dart';
 import 'package:drift/drift.dart';
+import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
 import '../database/app_database.dart';
@@ -80,6 +81,7 @@ class SvgIndexer {
         );
 
     final components = await SketchParser.parseLibrary(scanDir);
+    if (kDebugMode) print('SvgIndexer: SketchParser found ${components.length} components in ${scanDir.path}');
     if (components.isEmpty) return 1;
 
     final companions = components.map((c) {

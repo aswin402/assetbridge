@@ -839,6 +839,8 @@ class _AssetTileState extends ConsumerState<_AssetTile> {
   }
 
   Widget _buildPreview(BuildContext context) {
+    // For sketch components: render SVG inline instead of showing kit preview
+    // (all components share the same kit preview.png which shows everything)
     if (isSketch && asset.metadata != null) {
       try {
         final meta = jsonDecode(asset.metadata!) as Map<String, dynamic>;
@@ -849,6 +851,7 @@ class _AssetTileState extends ConsumerState<_AssetTile> {
       } catch (_) {}
     }
 
+    // Plain SVG icon — render directly
     if (isSvg) {
       return SvgPicture.file(
         File(asset.filePath),
@@ -859,6 +862,7 @@ class _AssetTileState extends ConsumerState<_AssetTile> {
       );
     }
 
+    // Standalone .sketch file with a preview image
     if (asset.previewPath != null) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(4),
@@ -925,7 +929,10 @@ class _AssetTileState extends ConsumerState<_AssetTile> {
 // ---------------------------------------------------------------------------
 
 class _SketchComponentPreview extends StatefulWidget {
-  const _SketchComponentPreview({required this.asset, required this.size});
+  const _SketchComponentPreview({
+    required this.asset,
+    required this.size,
+  });
 
   final Asset asset;
   final double size;
@@ -960,7 +967,7 @@ class _SketchComponentPreviewState extends State<_SketchComponentPreview> {
   }
 
   Future<void> _loadSvg() async {
-    // Check cache first — no async work needed
+    // 1. Check LRU cache — instant, no I/O
     if (SvgPreviewCache.instance.has(widget.asset.id)) {
       if (mounted) {
         setState(() {
@@ -971,7 +978,7 @@ class _SketchComponentPreviewState extends State<_SketchComponentPreview> {
       return;
     }
 
-    // Throttle: max 4 concurrent conversions via semaphore
+    // 2. Throttle — max 4 concurrent SVG conversions at once
     await svgLoadSemaphore.acquire();
     try {
       if (!mounted) return;
@@ -987,7 +994,8 @@ class _SketchComponentPreviewState extends State<_SketchComponentPreview> {
           componentId: meta['id'] as String,
         );
       } else if (type == 'sketch_kit') {
-        // Show preview image for kit entry if available
+        // For kit entry: show the kit preview image if available,
+        // otherwise show first artboard SVG
         if (widget.asset.previewPath != null &&
             await File(widget.asset.previewPath!).exists()) {
           if (mounted) setState(() => _loading = false);
@@ -996,7 +1004,7 @@ class _SketchComponentPreviewState extends State<_SketchComponentPreview> {
         svg = await _firstArtboardSvg(widget.asset.filePath);
       }
 
-      // Cache it
+      // 3. Cache the result
       if (svg != null) SvgPreviewCache.instance.set(widget.asset.id, svg);
 
       if (mounted) {
@@ -1007,11 +1015,7 @@ class _SketchComponentPreviewState extends State<_SketchComponentPreview> {
         });
       }
     } catch (_) {
-      if (mounted)
-        setState(() {
-          _loading = false;
-          _failed = true;
-        });
+      if (mounted) setState(() { _loading = false; _failed = true; });
     } finally {
       svgLoadSemaphore.release();
     }
@@ -1047,24 +1051,6 @@ class _SketchComponentPreviewState extends State<_SketchComponentPreview> {
           width: widget.size * 0.3,
           height: widget.size * 0.3,
           child: const CircularProgressIndicator(strokeWidth: 1.5),
-        ),
-      );
-    }
-
-    // Kit with preview image
-    if (!_failed && _svgString == null && widget.asset.previewPath != null) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(4),
-        child: Image.file(
-          File(widget.asset.previewPath!),
-          fit: BoxFit.cover,
-          width: double.infinity,
-          height: double.infinity,
-          errorBuilder: (_, __, ___) => Icon(
-            Icons.diamond_outlined,
-            size: widget.size * 0.45,
-            color: Colors.orange,
-          ),
         ),
       );
     }

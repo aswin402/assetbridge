@@ -57,11 +57,11 @@ const supportedPacks = [
     svgPathPrefix: 'src',
   ),
   PackConfig(
-    name: 'Material',
+    name: 'Material Icons',
     slug: 'material',
-    owner: 'google',
-    repo: 'material-design-icons',
-    svgPathPrefix: 'symbols/web',
+    owner: 'material-icons',
+    repo: 'material-icons',
+    svgPathPrefix: 'svg',
   ),
   PackConfig(
     name: 'Tailwind CSS Sketch Kit',

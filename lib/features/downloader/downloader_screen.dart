@@ -69,7 +69,10 @@ class DownloaderScreen extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(height: 32),
-                Row(
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     Text(
                       'AVAILABLE PACKS',
@@ -80,7 +83,7 @@ class DownloaderScreen extends ConsumerWidget {
                         color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
                       ),
                     ),
-                    const Spacer(),
+                    const SizedBox(width: 8),
                     TextButton.icon(
                       onPressed: () => _showAddGithubDialog(context, ref),
                       icon: const Icon(Icons.cloud_download_rounded, size: 16),
@@ -90,7 +93,6 @@ class DownloaderScreen extends ConsumerWidget {
                         textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
                       ),
                     ),
-                    const SizedBox(width: 8),
                     TextButton.icon(
                       onPressed: () => _showAddLocalDialog(context, ref),
                       icon: const Icon(Icons.add_rounded, size: 16),
