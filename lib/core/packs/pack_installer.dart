@@ -12,15 +12,13 @@ import '../indexer/svg_indexer.dart';
 import '../paths/app_paths.dart';
 import 'pack_config.dart';
 
-/// Downloads a pack from the latest GitHub release zipball, extracts under
-/// [AppPaths.packsRoot], and indexes SVG metadata into SQLite.
 class PackInstaller {
   PackInstaller(this._db, this._dio);
 
   final AppDatabase _db;
   final Dio _dio;
 
-  /// Installs or replaces the given pack. Reports coarse-grained progress.
+  /// Installs or replaces the given pack from the latest GitHub release.
   Future<void> install({
     required PackConfig config,
     CancelToken? cancelToken,
@@ -29,7 +27,8 @@ class PackInstaller {
     final owner = config.owner;
     final repo = config.repo;
     if (owner == null || repo == null) {
-      throw ArgumentError('config.owner and config.repo must be provided for GitHub install');
+      throw ArgumentError(
+          'config.owner and config.repo must be provided for GitHub install');
     }
 
     final client = GitHubReleaseClient(_dio);
@@ -49,7 +48,8 @@ class PackInstaller {
     await _db.removePackDirectoryIfExists(packDir);
     await Directory(packDir).create(recursive: true);
 
-    final tempDir = await Directory.systemTemp.createTemp('assetbridge_${config.slug}_');
+    final tempDir =
+        await Directory.systemTemp.createTemp('assetbridge_${config.slug}_');
     final zipFile = File(p.join(tempDir.path, 'src.zip'));
 
     Future<void> cleanupFailure() async {
@@ -67,7 +67,8 @@ class PackInstaller {
           if (total <= 0) {
             onProgress?.call('Downloading ${release.tagName}…', null);
           } else {
-            onProgress?.call('Downloading ${release.tagName}…', received / total);
+            onProgress?.call(
+                'Downloading ${release.tagName}…', received / total);
           }
         },
       );
@@ -91,6 +92,7 @@ class PackInstaller {
         packDir: packDir,
         version: release.tagName,
         sourceUrl: release.htmlUrl,
+        isUiKit: false,
         onProgress: onProgress,
       );
     } catch (e) {
@@ -103,12 +105,18 @@ class PackInstaller {
     }
   }
 
-  /// Installs a pack from a local ZIP file.
+  /// Installs a pack from a local ZIP or Sketch file.
+  ///
+  /// KEY FIX: A `.sketch` file is actually a zip bundle containing
+  /// `document.json`, `pages/`, `images/` etc.
+  /// We extract it so [SvgIndexer] can detect it as a Sketch library
+  /// and properly index all components.
   Future<void> installLocal({
     required File zipFile,
     required String name,
     required String slug,
     String? svgPathPrefix,
+    bool isUiKit = false,
     void Function(String phase, double? fraction)? onProgress,
   }) async {
     final packDir = p.join(AppPaths.packsRoot, slug);
@@ -122,12 +130,34 @@ class PackInstaller {
     }
 
     try {
-      onProgress?.call('Extracting…', null);
-      final bytes = await zipFile.readAsBytes();
-      await extractZipBytes(bytes, packDir);
+      final isSketch = zipFile.path.toLowerCase().endsWith('.sketch');
+
+      if (isSketch) {
+        // .sketch IS a zip — extract into a named subfolder so that
+        // _isSketchLibraryDir() finds document.json at:
+        //   packDir/slug/document.json
+        //   packDir/slug/pages/
+        onProgress?.call('Extracting Sketch bundle…', null);
+        final kitFolder = p.join(packDir, slug);
+        await Directory(kitFolder).create(recursive: true);
+        final bytes = await zipFile.readAsBytes();
+        await extractZipBytes(bytes, kitFolder);
+
+        // Always treat extracted .sketch as a UI kit
+        isUiKit = true;
+      } else {
+        onProgress?.call('Extracting…', null);
+        final bytes = await zipFile.readAsBytes();
+        await extractZipBytes(bytes, packDir);
+      }
 
       await _finishInstallation(
-        config: PackConfig(name: name, slug: slug, svgPathPrefix: svgPathPrefix),
+        config: PackConfig(
+          name: name,
+          slug: slug,
+          svgPathPrefix: svgPathPrefix,
+        ),
+        isUiKit: isUiKit,
         packDir: packDir,
         version: 'local',
         sourceUrl: 'file://${zipFile.path}',
@@ -144,9 +174,11 @@ class PackInstaller {
     required String packDir,
     required String version,
     required String sourceUrl,
+    bool isUiKit = false,
     void Function(String phase, double? fraction)? onProgress,
   }) async {
     onProgress?.call('Indexing…', null);
+
     final packId = await _db.into(_db.packs).insert(
           PacksCompanion.insert(
             name: config.name,
@@ -155,6 +187,7 @@ class PackInstaller {
             localPath: p.normalize(packDir),
             downloadedAt: Value(DateTime.now()),
             sourceUrl: Value(sourceUrl),
+            isUiKit: Value(isUiKit),
           ),
         );
 
@@ -164,9 +197,8 @@ class PackInstaller {
       scanSubdir: config.svgPathPrefix,
     );
 
-    await (_db.update(_db.packs)..where((p) => p.id.equals(packId))).write(
-      PacksCompanion(iconCount: Value(count)),
-    );
+    await (_db.update(_db.packs)..where((row) => row.id.equals(packId)))
+        .write(PacksCompanion(iconCount: Value(count)));
 
     onProgress?.call('Done', 1);
   }

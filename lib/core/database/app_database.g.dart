@@ -85,6 +85,21 @@ class $PacksTable extends Packs with TableInfo<$PacksTable, Pack> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _isUiKitMeta = const VerificationMeta(
+    'isUiKit',
+  );
+  @override
+  late final GeneratedColumn<bool> isUiKit = GeneratedColumn<bool>(
+    'is_ui_kit',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_ui_kit" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -94,6 +109,7 @@ class $PacksTable extends Packs with TableInfo<$PacksTable, Pack> {
     localPath,
     downloadedAt,
     sourceUrl,
+    isUiKit,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -157,6 +173,12 @@ class $PacksTable extends Packs with TableInfo<$PacksTable, Pack> {
         sourceUrl.isAcceptableOrUnknown(data['source_url']!, _sourceUrlMeta),
       );
     }
+    if (data.containsKey('is_ui_kit')) {
+      context.handle(
+        _isUiKitMeta,
+        isUiKit.isAcceptableOrUnknown(data['is_ui_kit']!, _isUiKitMeta),
+      );
+    }
     return context;
   }
 
@@ -194,6 +216,10 @@ class $PacksTable extends Packs with TableInfo<$PacksTable, Pack> {
         DriftSqlType.string,
         data['${effectivePrefix}source_url'],
       ),
+      isUiKit: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_ui_kit'],
+      )!,
     );
   }
 
@@ -211,6 +237,7 @@ class Pack extends DataClass implements Insertable<Pack> {
   final String localPath;
   final DateTime? downloadedAt;
   final String? sourceUrl;
+  final bool isUiKit;
   const Pack({
     required this.id,
     required this.name,
@@ -219,6 +246,7 @@ class Pack extends DataClass implements Insertable<Pack> {
     required this.localPath,
     this.downloadedAt,
     this.sourceUrl,
+    required this.isUiKit,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -234,6 +262,7 @@ class Pack extends DataClass implements Insertable<Pack> {
     if (!nullToAbsent || sourceUrl != null) {
       map['source_url'] = Variable<String>(sourceUrl);
     }
+    map['is_ui_kit'] = Variable<bool>(isUiKit);
     return map;
   }
 
@@ -250,6 +279,7 @@ class Pack extends DataClass implements Insertable<Pack> {
       sourceUrl: sourceUrl == null && nullToAbsent
           ? const Value.absent()
           : Value(sourceUrl),
+      isUiKit: Value(isUiKit),
     );
   }
 
@@ -266,6 +296,7 @@ class Pack extends DataClass implements Insertable<Pack> {
       localPath: serializer.fromJson<String>(json['localPath']),
       downloadedAt: serializer.fromJson<DateTime?>(json['downloadedAt']),
       sourceUrl: serializer.fromJson<String?>(json['sourceUrl']),
+      isUiKit: serializer.fromJson<bool>(json['isUiKit']),
     );
   }
   @override
@@ -279,6 +310,7 @@ class Pack extends DataClass implements Insertable<Pack> {
       'localPath': serializer.toJson<String>(localPath),
       'downloadedAt': serializer.toJson<DateTime?>(downloadedAt),
       'sourceUrl': serializer.toJson<String?>(sourceUrl),
+      'isUiKit': serializer.toJson<bool>(isUiKit),
     };
   }
 
@@ -290,6 +322,7 @@ class Pack extends DataClass implements Insertable<Pack> {
     String? localPath,
     Value<DateTime?> downloadedAt = const Value.absent(),
     Value<String?> sourceUrl = const Value.absent(),
+    bool? isUiKit,
   }) => Pack(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -298,6 +331,7 @@ class Pack extends DataClass implements Insertable<Pack> {
     localPath: localPath ?? this.localPath,
     downloadedAt: downloadedAt.present ? downloadedAt.value : this.downloadedAt,
     sourceUrl: sourceUrl.present ? sourceUrl.value : this.sourceUrl,
+    isUiKit: isUiKit ?? this.isUiKit,
   );
   Pack copyWithCompanion(PacksCompanion data) {
     return Pack(
@@ -310,6 +344,7 @@ class Pack extends DataClass implements Insertable<Pack> {
           ? data.downloadedAt.value
           : this.downloadedAt,
       sourceUrl: data.sourceUrl.present ? data.sourceUrl.value : this.sourceUrl,
+      isUiKit: data.isUiKit.present ? data.isUiKit.value : this.isUiKit,
     );
   }
 
@@ -322,7 +357,8 @@ class Pack extends DataClass implements Insertable<Pack> {
           ..write('iconCount: $iconCount, ')
           ..write('localPath: $localPath, ')
           ..write('downloadedAt: $downloadedAt, ')
-          ..write('sourceUrl: $sourceUrl')
+          ..write('sourceUrl: $sourceUrl, ')
+          ..write('isUiKit: $isUiKit')
           ..write(')'))
         .toString();
   }
@@ -336,6 +372,7 @@ class Pack extends DataClass implements Insertable<Pack> {
     localPath,
     downloadedAt,
     sourceUrl,
+    isUiKit,
   );
   @override
   bool operator ==(Object other) =>
@@ -347,7 +384,8 @@ class Pack extends DataClass implements Insertable<Pack> {
           other.iconCount == this.iconCount &&
           other.localPath == this.localPath &&
           other.downloadedAt == this.downloadedAt &&
-          other.sourceUrl == this.sourceUrl);
+          other.sourceUrl == this.sourceUrl &&
+          other.isUiKit == this.isUiKit);
 }
 
 class PacksCompanion extends UpdateCompanion<Pack> {
@@ -358,6 +396,7 @@ class PacksCompanion extends UpdateCompanion<Pack> {
   final Value<String> localPath;
   final Value<DateTime?> downloadedAt;
   final Value<String?> sourceUrl;
+  final Value<bool> isUiKit;
   const PacksCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
@@ -366,6 +405,7 @@ class PacksCompanion extends UpdateCompanion<Pack> {
     this.localPath = const Value.absent(),
     this.downloadedAt = const Value.absent(),
     this.sourceUrl = const Value.absent(),
+    this.isUiKit = const Value.absent(),
   });
   PacksCompanion.insert({
     this.id = const Value.absent(),
@@ -375,6 +415,7 @@ class PacksCompanion extends UpdateCompanion<Pack> {
     required String localPath,
     this.downloadedAt = const Value.absent(),
     this.sourceUrl = const Value.absent(),
+    this.isUiKit = const Value.absent(),
   }) : name = Value(name),
        version = Value(version),
        iconCount = Value(iconCount),
@@ -387,6 +428,7 @@ class PacksCompanion extends UpdateCompanion<Pack> {
     Expression<String>? localPath,
     Expression<DateTime>? downloadedAt,
     Expression<String>? sourceUrl,
+    Expression<bool>? isUiKit,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -396,6 +438,7 @@ class PacksCompanion extends UpdateCompanion<Pack> {
       if (localPath != null) 'local_path': localPath,
       if (downloadedAt != null) 'downloaded_at': downloadedAt,
       if (sourceUrl != null) 'source_url': sourceUrl,
+      if (isUiKit != null) 'is_ui_kit': isUiKit,
     });
   }
 
@@ -407,6 +450,7 @@ class PacksCompanion extends UpdateCompanion<Pack> {
     Value<String>? localPath,
     Value<DateTime?>? downloadedAt,
     Value<String?>? sourceUrl,
+    Value<bool>? isUiKit,
   }) {
     return PacksCompanion(
       id: id ?? this.id,
@@ -416,6 +460,7 @@ class PacksCompanion extends UpdateCompanion<Pack> {
       localPath: localPath ?? this.localPath,
       downloadedAt: downloadedAt ?? this.downloadedAt,
       sourceUrl: sourceUrl ?? this.sourceUrl,
+      isUiKit: isUiKit ?? this.isUiKit,
     );
   }
 
@@ -443,6 +488,9 @@ class PacksCompanion extends UpdateCompanion<Pack> {
     if (sourceUrl.present) {
       map['source_url'] = Variable<String>(sourceUrl.value);
     }
+    if (isUiKit.present) {
+      map['is_ui_kit'] = Variable<bool>(isUiKit.value);
+    }
     return map;
   }
 
@@ -455,7 +503,8 @@ class PacksCompanion extends UpdateCompanion<Pack> {
           ..write('iconCount: $iconCount, ')
           ..write('localPath: $localPath, ')
           ..write('downloadedAt: $downloadedAt, ')
-          ..write('sourceUrl: $sourceUrl')
+          ..write('sourceUrl: $sourceUrl, ')
+          ..write('isUiKit: $isUiKit')
           ..write(')'))
         .toString();
   }
@@ -542,6 +591,28 @@ class $AssetsTable extends Assets with TableInfo<$AssetsTable, Asset> {
     type: DriftSqlType.int,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _previewPathMeta = const VerificationMeta(
+    'previewPath',
+  );
+  @override
+  late final GeneratedColumn<String> previewPath = GeneratedColumn<String>(
+    'preview_path',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _metadataMeta = const VerificationMeta(
+    'metadata',
+  );
+  @override
+  late final GeneratedColumn<String> metadata = GeneratedColumn<String>(
+    'metadata',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -551,6 +622,8 @@ class $AssetsTable extends Assets with TableInfo<$AssetsTable, Asset> {
     category,
     filePath,
     fileSizeBytes,
+    previewPath,
+    metadata,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -614,6 +687,21 @@ class $AssetsTable extends Assets with TableInfo<$AssetsTable, Asset> {
         ),
       );
     }
+    if (data.containsKey('preview_path')) {
+      context.handle(
+        _previewPathMeta,
+        previewPath.isAcceptableOrUnknown(
+          data['preview_path']!,
+          _previewPathMeta,
+        ),
+      );
+    }
+    if (data.containsKey('metadata')) {
+      context.handle(
+        _metadataMeta,
+        metadata.isAcceptableOrUnknown(data['metadata']!, _metadataMeta),
+      );
+    }
     return context;
   }
 
@@ -651,6 +739,14 @@ class $AssetsTable extends Assets with TableInfo<$AssetsTable, Asset> {
         DriftSqlType.int,
         data['${effectivePrefix}file_size_bytes'],
       ),
+      previewPath: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}preview_path'],
+      ),
+      metadata: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}metadata'],
+      ),
     );
   }
 
@@ -670,6 +766,8 @@ class Asset extends DataClass implements Insertable<Asset> {
   final String? category;
   final String filePath;
   final int? fileSizeBytes;
+  final String? previewPath;
+  final String? metadata;
   const Asset({
     required this.id,
     required this.packId,
@@ -678,6 +776,8 @@ class Asset extends DataClass implements Insertable<Asset> {
     this.category,
     required this.filePath,
     this.fileSizeBytes,
+    this.previewPath,
+    this.metadata,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -692,6 +792,12 @@ class Asset extends DataClass implements Insertable<Asset> {
     map['file_path'] = Variable<String>(filePath);
     if (!nullToAbsent || fileSizeBytes != null) {
       map['file_size_bytes'] = Variable<int>(fileSizeBytes);
+    }
+    if (!nullToAbsent || previewPath != null) {
+      map['preview_path'] = Variable<String>(previewPath);
+    }
+    if (!nullToAbsent || metadata != null) {
+      map['metadata'] = Variable<String>(metadata);
     }
     return map;
   }
@@ -709,6 +815,12 @@ class Asset extends DataClass implements Insertable<Asset> {
       fileSizeBytes: fileSizeBytes == null && nullToAbsent
           ? const Value.absent()
           : Value(fileSizeBytes),
+      previewPath: previewPath == null && nullToAbsent
+          ? const Value.absent()
+          : Value(previewPath),
+      metadata: metadata == null && nullToAbsent
+          ? const Value.absent()
+          : Value(metadata),
     );
   }
 
@@ -725,6 +837,8 @@ class Asset extends DataClass implements Insertable<Asset> {
       category: serializer.fromJson<String?>(json['category']),
       filePath: serializer.fromJson<String>(json['filePath']),
       fileSizeBytes: serializer.fromJson<int?>(json['fileSizeBytes']),
+      previewPath: serializer.fromJson<String?>(json['previewPath']),
+      metadata: serializer.fromJson<String?>(json['metadata']),
     );
   }
   @override
@@ -738,6 +852,8 @@ class Asset extends DataClass implements Insertable<Asset> {
       'category': serializer.toJson<String?>(category),
       'filePath': serializer.toJson<String>(filePath),
       'fileSizeBytes': serializer.toJson<int?>(fileSizeBytes),
+      'previewPath': serializer.toJson<String?>(previewPath),
+      'metadata': serializer.toJson<String?>(metadata),
     };
   }
 
@@ -749,6 +865,8 @@ class Asset extends DataClass implements Insertable<Asset> {
     Value<String?> category = const Value.absent(),
     String? filePath,
     Value<int?> fileSizeBytes = const Value.absent(),
+    Value<String?> previewPath = const Value.absent(),
+    Value<String?> metadata = const Value.absent(),
   }) => Asset(
     id: id ?? this.id,
     packId: packId ?? this.packId,
@@ -759,6 +877,8 @@ class Asset extends DataClass implements Insertable<Asset> {
     fileSizeBytes: fileSizeBytes.present
         ? fileSizeBytes.value
         : this.fileSizeBytes,
+    previewPath: previewPath.present ? previewPath.value : this.previewPath,
+    metadata: metadata.present ? metadata.value : this.metadata,
   );
   Asset copyWithCompanion(AssetsCompanion data) {
     return Asset(
@@ -771,6 +891,10 @@ class Asset extends DataClass implements Insertable<Asset> {
       fileSizeBytes: data.fileSizeBytes.present
           ? data.fileSizeBytes.value
           : this.fileSizeBytes,
+      previewPath: data.previewPath.present
+          ? data.previewPath.value
+          : this.previewPath,
+      metadata: data.metadata.present ? data.metadata.value : this.metadata,
     );
   }
 
@@ -783,14 +907,25 @@ class Asset extends DataClass implements Insertable<Asset> {
           ..write('tags: $tags, ')
           ..write('category: $category, ')
           ..write('filePath: $filePath, ')
-          ..write('fileSizeBytes: $fileSizeBytes')
+          ..write('fileSizeBytes: $fileSizeBytes, ')
+          ..write('previewPath: $previewPath, ')
+          ..write('metadata: $metadata')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, packId, name, tags, category, filePath, fileSizeBytes);
+  int get hashCode => Object.hash(
+    id,
+    packId,
+    name,
+    tags,
+    category,
+    filePath,
+    fileSizeBytes,
+    previewPath,
+    metadata,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -801,7 +936,9 @@ class Asset extends DataClass implements Insertable<Asset> {
           other.tags == this.tags &&
           other.category == this.category &&
           other.filePath == this.filePath &&
-          other.fileSizeBytes == this.fileSizeBytes);
+          other.fileSizeBytes == this.fileSizeBytes &&
+          other.previewPath == this.previewPath &&
+          other.metadata == this.metadata);
 }
 
 class AssetsCompanion extends UpdateCompanion<Asset> {
@@ -812,6 +949,8 @@ class AssetsCompanion extends UpdateCompanion<Asset> {
   final Value<String?> category;
   final Value<String> filePath;
   final Value<int?> fileSizeBytes;
+  final Value<String?> previewPath;
+  final Value<String?> metadata;
   const AssetsCompanion({
     this.id = const Value.absent(),
     this.packId = const Value.absent(),
@@ -820,6 +959,8 @@ class AssetsCompanion extends UpdateCompanion<Asset> {
     this.category = const Value.absent(),
     this.filePath = const Value.absent(),
     this.fileSizeBytes = const Value.absent(),
+    this.previewPath = const Value.absent(),
+    this.metadata = const Value.absent(),
   });
   AssetsCompanion.insert({
     this.id = const Value.absent(),
@@ -829,6 +970,8 @@ class AssetsCompanion extends UpdateCompanion<Asset> {
     this.category = const Value.absent(),
     required String filePath,
     this.fileSizeBytes = const Value.absent(),
+    this.previewPath = const Value.absent(),
+    this.metadata = const Value.absent(),
   }) : packId = Value(packId),
        name = Value(name),
        tags = Value(tags),
@@ -841,6 +984,8 @@ class AssetsCompanion extends UpdateCompanion<Asset> {
     Expression<String>? category,
     Expression<String>? filePath,
     Expression<int>? fileSizeBytes,
+    Expression<String>? previewPath,
+    Expression<String>? metadata,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -850,6 +995,8 @@ class AssetsCompanion extends UpdateCompanion<Asset> {
       if (category != null) 'category': category,
       if (filePath != null) 'file_path': filePath,
       if (fileSizeBytes != null) 'file_size_bytes': fileSizeBytes,
+      if (previewPath != null) 'preview_path': previewPath,
+      if (metadata != null) 'metadata': metadata,
     });
   }
 
@@ -861,6 +1008,8 @@ class AssetsCompanion extends UpdateCompanion<Asset> {
     Value<String?>? category,
     Value<String>? filePath,
     Value<int?>? fileSizeBytes,
+    Value<String?>? previewPath,
+    Value<String?>? metadata,
   }) {
     return AssetsCompanion(
       id: id ?? this.id,
@@ -870,6 +1019,8 @@ class AssetsCompanion extends UpdateCompanion<Asset> {
       category: category ?? this.category,
       filePath: filePath ?? this.filePath,
       fileSizeBytes: fileSizeBytes ?? this.fileSizeBytes,
+      previewPath: previewPath ?? this.previewPath,
+      metadata: metadata ?? this.metadata,
     );
   }
 
@@ -897,6 +1048,12 @@ class AssetsCompanion extends UpdateCompanion<Asset> {
     if (fileSizeBytes.present) {
       map['file_size_bytes'] = Variable<int>(fileSizeBytes.value);
     }
+    if (previewPath.present) {
+      map['preview_path'] = Variable<String>(previewPath.value);
+    }
+    if (metadata.present) {
+      map['metadata'] = Variable<String>(metadata.value);
+    }
     return map;
   }
 
@@ -909,7 +1066,9 @@ class AssetsCompanion extends UpdateCompanion<Asset> {
           ..write('tags: $tags, ')
           ..write('category: $category, ')
           ..write('filePath: $filePath, ')
-          ..write('fileSizeBytes: $fileSizeBytes')
+          ..write('fileSizeBytes: $fileSizeBytes, ')
+          ..write('previewPath: $previewPath, ')
+          ..write('metadata: $metadata')
           ..write(')'))
         .toString();
   }
@@ -936,6 +1095,7 @@ typedef $$PacksTableCreateCompanionBuilder =
       required String localPath,
       Value<DateTime?> downloadedAt,
       Value<String?> sourceUrl,
+      Value<bool> isUiKit,
     });
 typedef $$PacksTableUpdateCompanionBuilder =
     PacksCompanion Function({
@@ -946,6 +1106,7 @@ typedef $$PacksTableUpdateCompanionBuilder =
       Value<String> localPath,
       Value<DateTime?> downloadedAt,
       Value<String?> sourceUrl,
+      Value<bool> isUiKit,
     });
 
 final class $$PacksTableReferences
@@ -1012,6 +1173,11 @@ class $$PacksTableFilterComposer extends Composer<_$AppDatabase, $PacksTable> {
 
   ColumnFilters<String> get sourceUrl => $composableBuilder(
     column: $table.sourceUrl,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isUiKit => $composableBuilder(
+    column: $table.isUiKit,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -1084,6 +1250,11 @@ class $$PacksTableOrderingComposer
     column: $table.sourceUrl,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<bool> get isUiKit => $composableBuilder(
+    column: $table.isUiKit,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$PacksTableAnnotationComposer
@@ -1117,6 +1288,9 @@ class $$PacksTableAnnotationComposer
 
   GeneratedColumn<String> get sourceUrl =>
       $composableBuilder(column: $table.sourceUrl, builder: (column) => column);
+
+  GeneratedColumn<bool> get isUiKit =>
+      $composableBuilder(column: $table.isUiKit, builder: (column) => column);
 
   Expression<T> assetsRefs<T extends Object>(
     Expression<T> Function($$AssetsTableAnnotationComposer a) f,
@@ -1179,6 +1353,7 @@ class $$PacksTableTableManager
                 Value<String> localPath = const Value.absent(),
                 Value<DateTime?> downloadedAt = const Value.absent(),
                 Value<String?> sourceUrl = const Value.absent(),
+                Value<bool> isUiKit = const Value.absent(),
               }) => PacksCompanion(
                 id: id,
                 name: name,
@@ -1187,6 +1362,7 @@ class $$PacksTableTableManager
                 localPath: localPath,
                 downloadedAt: downloadedAt,
                 sourceUrl: sourceUrl,
+                isUiKit: isUiKit,
               ),
           createCompanionCallback:
               ({
@@ -1197,6 +1373,7 @@ class $$PacksTableTableManager
                 required String localPath,
                 Value<DateTime?> downloadedAt = const Value.absent(),
                 Value<String?> sourceUrl = const Value.absent(),
+                Value<bool> isUiKit = const Value.absent(),
               }) => PacksCompanion.insert(
                 id: id,
                 name: name,
@@ -1205,6 +1382,7 @@ class $$PacksTableTableManager
                 localPath: localPath,
                 downloadedAt: downloadedAt,
                 sourceUrl: sourceUrl,
+                isUiKit: isUiKit,
               ),
           withReferenceMapper: (p0) => p0
               .map(
@@ -1262,6 +1440,8 @@ typedef $$AssetsTableCreateCompanionBuilder =
       Value<String?> category,
       required String filePath,
       Value<int?> fileSizeBytes,
+      Value<String?> previewPath,
+      Value<String?> metadata,
     });
 typedef $$AssetsTableUpdateCompanionBuilder =
     AssetsCompanion Function({
@@ -1272,6 +1452,8 @@ typedef $$AssetsTableUpdateCompanionBuilder =
       Value<String?> category,
       Value<String> filePath,
       Value<int?> fileSizeBytes,
+      Value<String?> previewPath,
+      Value<String?> metadata,
     });
 
 final class $$AssetsTableReferences
@@ -1332,6 +1514,16 @@ class $$AssetsTableFilterComposer
 
   ColumnFilters<int> get fileSizeBytes => $composableBuilder(
     column: $table.fileSizeBytes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get previewPath => $composableBuilder(
+    column: $table.previewPath,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get metadata => $composableBuilder(
+    column: $table.metadata,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -1398,6 +1590,16 @@ class $$AssetsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get previewPath => $composableBuilder(
+    column: $table.previewPath,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get metadata => $composableBuilder(
+    column: $table.metadata,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$PacksTableOrderingComposer get packId {
     final $$PacksTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -1450,6 +1652,14 @@ class $$AssetsTableAnnotationComposer
     column: $table.fileSizeBytes,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get previewPath => $composableBuilder(
+    column: $table.previewPath,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get metadata =>
+      $composableBuilder(column: $table.metadata, builder: (column) => column);
 
   $$PacksTableAnnotationComposer get packId {
     final $$PacksTableAnnotationComposer composer = $composerBuilder(
@@ -1510,6 +1720,8 @@ class $$AssetsTableTableManager
                 Value<String?> category = const Value.absent(),
                 Value<String> filePath = const Value.absent(),
                 Value<int?> fileSizeBytes = const Value.absent(),
+                Value<String?> previewPath = const Value.absent(),
+                Value<String?> metadata = const Value.absent(),
               }) => AssetsCompanion(
                 id: id,
                 packId: packId,
@@ -1518,6 +1730,8 @@ class $$AssetsTableTableManager
                 category: category,
                 filePath: filePath,
                 fileSizeBytes: fileSizeBytes,
+                previewPath: previewPath,
+                metadata: metadata,
               ),
           createCompanionCallback:
               ({
@@ -1528,6 +1742,8 @@ class $$AssetsTableTableManager
                 Value<String?> category = const Value.absent(),
                 required String filePath,
                 Value<int?> fileSizeBytes = const Value.absent(),
+                Value<String?> previewPath = const Value.absent(),
+                Value<String?> metadata = const Value.absent(),
               }) => AssetsCompanion.insert(
                 id: id,
                 packId: packId,
@@ -1536,6 +1752,8 @@ class $$AssetsTableTableManager
                 category: category,
                 filePath: filePath,
                 fileSizeBytes: fileSizeBytes,
+                previewPath: previewPath,
+                metadata: metadata,
               ),
           withReferenceMapper: (p0) => p0
               .map(

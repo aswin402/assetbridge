@@ -20,6 +20,8 @@ class Packs extends Table {
   DateTimeColumn get downloadedAt => dateTime().nullable()();
 
   TextColumn get sourceUrl => text().nullable()();
+
+  BoolColumn get isUiKit => boolean().withDefault(const Constant(false))();
 }
 
 class Assets extends Table {
@@ -37,6 +39,10 @@ class Assets extends Table {
   TextColumn get filePath => text()();
 
   IntColumn get fileSizeBytes => integer().nullable()();
+
+  TextColumn get previewPath => text().nullable()();
+
+  TextColumn get metadata => text().nullable()();
 }
 
 @DriftDatabase(tables: [Packs, Assets])
@@ -59,5 +65,22 @@ class AppDatabase extends _$AppDatabase {
   }
 
   @override
-  int get schemaVersion => 1;
+  MigrationStrategy get migration {
+    return MigrationStrategy(
+      onUpgrade: (m, from, to) async {
+        if (from < 2) {
+          await m.addColumn(packs, packs.isUiKit);
+        }
+        if (from < 3) {
+          await m.addColumn(assets, assets.previewPath);
+        }
+        if (from < 4) {
+          await m.addColumn(assets, assets.metadata);
+        }
+      },
+    );
+  }
+
+  @override
+  int get schemaVersion => 4;
 }

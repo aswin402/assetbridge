@@ -18,10 +18,14 @@ abstract final class AppPaths {
   /// SQLite database file.
   static String get databaseFile => p.join(dataRoot, 'assetbridge.db');
 
+  /// Thumbnail cache: `~/.local/share/assetbridge/thumbnails/`
+  static String get thumbnailsRoot => p.join(dataRoot, 'thumbnails');
+
   /// Ensures data, packs, and config directories exist.
   static Future<void> ensureDirectories() async {
     await Directory(dataRoot).create(recursive: true);
     await Directory(packsRoot).create(recursive: true);
+    await Directory(thumbnailsRoot).create(recursive: true);
     await Directory(configRoot).create(recursive: true);
   }
 }

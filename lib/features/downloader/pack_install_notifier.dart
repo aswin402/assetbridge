@@ -92,8 +92,9 @@ class PackInstallNotifier extends Notifier<Map<String, PackInstallState>> {
     required String name,
     required String path,
     String? svgPathPrefix,
+    bool isUiKit = false,
   }) async {
-    final slug = name.toLowerCase().replaceAll(RegExp(r'[^a-z0-8]'), '_');
+    final slug = name.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '_');
     state = {
       ...state,
       slug: const PackInstallState(
@@ -111,6 +112,7 @@ class PackInstallNotifier extends Notifier<Map<String, PackInstallState>> {
         name: name,
         slug: slug,
         svgPathPrefix: svgPathPrefix,
+        isUiKit: isUiKit,
         onProgress: (phase, fraction) {
           state = {
             ...state,

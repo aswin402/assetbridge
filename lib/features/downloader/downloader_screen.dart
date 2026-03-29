@@ -235,82 +235,94 @@ class DownloaderScreen extends ConsumerWidget {
     final nameController = TextEditingController();
     final pathController = TextEditingController();
     final prefixController = TextEditingController();
+    bool isUiKit = false;
 
     await showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Add local pack'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameController,
-              decoration: const InputDecoration(
-                labelText: 'Pack name',
-                hintText: 'e.g. My Custom Icons',
-              ),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: pathController,
-                    decoration: const InputDecoration(
-                      labelText: 'ZIP File Path',
-                      hintText: '/path/to/icons.zip',
-                    ),
-                    readOnly: true,
-                  ),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Add local pack'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(
+                  labelText: 'Pack name',
+                  hintText: 'e.g. My Custom Icons',
                 ),
-                IconButton(
-                  onPressed: () async {
-                    final result = await FilePicker.platform.pickFiles(
-                      type: FileType.custom,
-                      allowedExtensions: ['zip'],
-                    );
-                    if (result != null && result.files.single.path != null) {
-                      pathController.text = result.files.single.path!;
-                      if (nameController.text.isEmpty) {
-                        nameController.text = result.files.single.name.replaceFirst('.zip', '');
-                      }
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: pathController,
+                decoration: const InputDecoration(
+                  labelText: 'File Path (ZIP or Sketch)',
+                  hintText: '/path/to/icons.zip or design.sketch',
+                ),
+                readOnly: true,
+              ),
+              IconButton(
+                onPressed: () async {
+                  final result = await FilePicker.platform.pickFiles(
+                    type: FileType.custom,
+                    allowedExtensions: ['zip', 'sketch'],
+                  );
+                  if (result != null && result.files.single.path != null) {
+                    pathController.text = result.files.single.path!;
+                    if (nameController.text.isEmpty) {
+                      nameController.text = result.files.single.name
+                          .replaceFirst('.zip', '')
+                          .replaceFirst('.sketch', '');
                     }
-                  },
-                  icon: const Icon(Icons.file_open),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: prefixController,
-              decoration: const InputDecoration(
-                labelText: 'Subdirectory (optional)',
-                hintText: 'e.g. assets/svg',
+                    if (result.files.single.name.toLowerCase().endsWith('.sketch')) {
+                      setState(() => isUiKit = true);
+                    }
+                  }
+                },
+                icon: const Icon(Icons.file_open),
               ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: prefixController,
+                decoration: const InputDecoration(
+                  labelText: 'Subdirectory (optional)',
+                  hintText: 'e.g. assets/svg',
+                ),
+              ),
+              const SizedBox(height: 16),
+              CheckboxListTile(
+                value: isUiKit,
+                onChanged: (v) => setState(() => isUiKit = v ?? false),
+                title: const Text('Treat as UI Kit'),
+                subtitle: const Text('Shows in UI Kits section instead of Icon Packs'),
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final name = nameController.text.trim();
+                final path = pathController.text.trim();
+                if (name.isNotEmpty && path.isNotEmpty) {
+                  ref.read(packInstallProvider.notifier).installLocal(
+                        name: name,
+                        path: path,
+                        svgPathPrefix: prefixController.text.trim().isEmpty ? null : prefixController.text.trim(),
+                        isUiKit: isUiKit,
+                      );
+                  Navigator.pop(context);
+                }
+              },
+              child: const Text('Add'),
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () {
-              final name = nameController.text.trim();
-              final path = pathController.text.trim();
-              if (name.isNotEmpty && path.isNotEmpty) {
-                ref.read(packInstallProvider.notifier).installLocal(
-                      name: name,
-                      path: path,
-                      svgPathPrefix: prefixController.text.trim().isEmpty ? null : prefixController.text.trim(),
-                    );
-                Navigator.pop(context);
-              }
-            },
-            child: const Text('Add'),
-          ),
-        ],
       ),
     );
   }
