@@ -116,38 +116,81 @@ class SvgIndexer {
     required String packRoot,
     required Directory scanDir,
   }) async {
-    final companions = <AssetsCompanion>[];
+    int totalCount = 0;
+    final svgCompanions = <AssetsCompanion>[];
 
     await for (final entity
         in scanDir.list(recursive: true, followLinks: false)) {
       if (entity is! File) continue;
       final lower = entity.path.toLowerCase();
-      final isSvg = lower.endsWith('.svg');
-      final isSketch = lower.endsWith('.sketch');
-      if (!isSvg && !isSketch) continue;
+
+      // ── Standalone .sketch binary → extract and index as a library ──────
+      if (lower.endsWith('.sketch')) {
+        if (kDebugMode) print('SvgIndexer: Found standalone .sketch at ${entity.path}. Expanding…');
+        final name = p.basenameWithoutExtension(entity.path);
+        final kitDir = Directory(p.join(p.dirname(entity.path), '${name}_extracted'));
+
+        try {
+          await kitDir.create(recursive: true);
+          final bytes = await entity.readAsBytes();
+          final archive = ZipDecoder().decodeBytes(bytes);
+
+          for (final f in archive) {
+            if (!f.isFile) continue;
+            final outPath = p.join(kitDir.path, f.name);
+            await Directory(p.dirname(outPath)).create(recursive: true);
+            await File(outPath).writeAsBytes(f.content as List<int>);
+          }
+
+          if (await _isSketchLibraryDir(kitDir)) {
+            final count = await _indexSketchLibraryDir(
+              packId: packId,
+              packRoot: packRoot,
+              scanDir: kitDir,
+            );
+            totalCount += count;
+            continue;
+          }
+        } catch (e) {
+          if (kDebugMode) print('SvgIndexer: Failed to expand .sketch at ${entity.path}: $e');
+          // Fall through: index as a single entry with preview
+        }
+
+        // Fallback: index as single kit entry with preview only
+        final previewPath = await _tryExtractSketchPreview(entity);
+        svgCompanions.add(AssetsCompanion.insert(
+          packId: packId,
+          name: name,
+          tags: tagsFromFilename(entity.path, isSketch: true),
+          filePath: p.normalize(entity.path),
+          fileSizeBytes: Value((await entity.stat()).size),
+          previewPath: Value(previewPath),
+        ));
+        continue;
+      }
+
+      // ── SVG files ────────────────────────────────────────────────────────
+      if (!lower.endsWith('.svg')) continue;
 
       final stat = await entity.stat();
       final rel = p.relative(entity.path, from: packRoot);
       final name = p.basenameWithoutExtension(entity.path);
-      final tags = tagsFromFilename(entity.path, isSketch: isSketch);
+      final tags = tagsFromFilename(entity.path, isSketch: false);
       final category = categoryFromRelativePath(rel);
 
-      String? previewPath;
-      if (isSketch) previewPath = await _tryExtractSketchPreview(entity);
-
-      companions.add(AssetsCompanion.insert(
+      svgCompanions.add(AssetsCompanion.insert(
         packId: packId,
         name: name,
         tags: tags,
         category: category != null ? Value(category) : const Value.absent(),
         filePath: p.normalize(entity.path),
         fileSizeBytes: Value(stat.size),
-        previewPath: Value(previewPath),
+        previewPath: const Value(null),
       ));
     }
 
-    await _batchInsert(companions);
-    return companions.length;
+    await _batchInsert(svgCompanions);
+    return totalCount + svgCompanions.length;
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
