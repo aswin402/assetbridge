@@ -21,6 +21,7 @@ import '../../shared/widgets/search_bar.dart';
 import '../downloader/downloader_screen.dart';
 import '../downloader/pack_install_notifier.dart';
 import 'library_providers.dart';
+import '../../shared/theme/theme_mode_provider.dart';
 
 final _categories = ['All', 'Arrows', 'UI', 'Social', 'Shapes', 'More'];
 
@@ -168,43 +169,58 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
               child: Row(
                 children: [
                   Text(
                     'AssetBridge',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -0.5,
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
                   ),
-                  const SizedBox(width: 24),
+                  const SizedBox(width: 32),
                   Expanded(
                     child: LibrarySearchBar(
                       controller: _searchController,
-                      onChanged: (_) {},
                     ),
+                  ),
+                  const SizedBox(width: 12),
+                  IconButton(
+                    onPressed: () {
+                      final isDark = Theme.of(context).brightness == Brightness.dark;
+                      ref.read(themeModeProvider.notifier).setThemeMode(
+                        isDark ? ThemeMode.light : ThemeMode.dark,
+                      );
+                    },
+                    icon: Icon(
+                      Theme.of(context).brightness == Brightness.light
+                          ? Icons.dark_mode_outlined
+                          : Icons.light_mode_outlined,
+                      size: 20,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                    tooltip: 'Toggle Theme',
                   ),
                 ],
               ),
             ),
-            const Divider(height: 1),
             Expanded(
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   // ── Sidebar ──────────────────────────────────────────────
                   SizedBox(
-                    width: 260,
-                    child: ColoredBox(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .surfaceContainerLow,
+                    width: 240,
+                    child: Container(
+                      color: Theme.of(context).colorScheme.surfaceContainerLow,
                       child: Padding(
-                        padding: const EdgeInsets.fromLTRB(12, 12, 8, 12),
+                        padding: const EdgeInsets.fromLTRB(12, 16, 12, 16),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            const SizedBox(height: 8),
                             Expanded(
                               child: SingleChildScrollView(
                                 child: Column(
@@ -214,8 +230,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                                     _sectionLabel(context, 'ICON PACKS'),
                                     const SizedBox(height: 8),
                                     packsAsync.when(
-                                      loading: () => const Center(
-                                          child: CircularProgressIndicator()),
+                                      loading: () => const SizedBox.shrink(),
                                       error: (e, _) =>
                                           Center(child: Text('$e')),
                                       data: (packs) {
@@ -244,7 +259,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                                               onChanged: (v) {
                                                 if (v == null) return;
                                                 setState(() {
-                                                  if (v) {
+                                                  if (v!) {
                                                     _disabledPackIds
                                                         .remove(pack.id);
                                                   } else {
@@ -294,7 +309,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                                               onChanged: (v) {
                                                 if (v == null) return;
                                                 setState(() {
-                                                  if (v) {
+                                                  if (v!) {
                                                     _disabledPackIds
                                                         .remove(pack.id);
                                                   } else {
@@ -314,8 +329,8 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                                 ),
                               ),
                             ),
-                            const SizedBox(height: 12),
-                            FilledButton.tonalIcon(
+                            const SizedBox(height: 16),
+                            FilledButton.tonal(
                               onPressed: () {
                                 Navigator.of(context).push<void>(
                                   MaterialPageRoute(
@@ -324,22 +339,24 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                                   ),
                                 );
                               },
-                              icon: const Icon(Icons.add, size: 18),
-                              label: const Text('Add Pack'),
-                            ),
-                            const SizedBox(height: 8),
-                            OutlinedButton.icon(
-                              onPressed: () {},
-                              icon: const Icon(Icons.settings_outlined,
-                                  size: 18),
-                              label: const Text('Settings'),
+                              style: FilledButton.styleFrom(
+                                backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                                foregroundColor: Theme.of(context).colorScheme.primary,
+                              ),
+                              child: const Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.add_rounded, size: 18),
+                                  SizedBox(width: 8),
+                                  Text('Add Pack', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                                ],
+                              ),
                             ),
                           ],
                         ),
                       ),
                     ),
                   ),
-                  const VerticalDivider(width: 1),
                   // ── Main grid ────────────────────────────────────────────
                   Expanded(
                     child: Column(
@@ -369,35 +386,31 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                         ),
                         Padding(
                           padding:
-                              const EdgeInsets.fromLTRB(16, 8, 16, 4),
+                              const EdgeInsets.fromLTRB(16, 4, 16, 4),
                           child: Row(
                             children: [
-                              Text(
-                                'Grid size',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodySmall
-                                    ?.copyWith(
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .onSurfaceVariant,
-                                    ),
-                              ),
+                              const Icon(Icons.grid_view_rounded, size: 14, color: Colors.grey),
+                              const SizedBox(width: 8),
                               Expanded(
-                                child: Slider(
-                                  value: _gridExtent,
-                                  min: 48,
-                                  max: 120,
-                                  divisions: 12,
-                                  label: '${_gridExtent.round()} px',
-                                  onChanged: (v) =>
-                                      setState(() => _gridExtent = v),
+                                child: SliderTheme(
+                                  data: SliderTheme.of(context).copyWith(
+                                    trackHeight: 2,
+                                    thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                                    overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
+                                  ),
+                                  child: Slider(
+                                    value: _gridExtent,
+                                    min: 48,
+                                    max: 120,
+                                    divisions: 12,
+                                    onChanged: (v) =>
+                                        setState(() => _gridExtent = v),
+                                  ),
                                 ),
                               ),
                             ],
                           ),
                         ),
-                        const Divider(height: 1),
                         Expanded(
                           child: assetsAsync.when(
                             loading: () => const Center(
@@ -462,12 +475,17 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     );
   }
 
-  Widget _sectionLabel(BuildContext context, String text) => Text(
-        text,
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              letterSpacing: 1.2,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
+  Widget _sectionLabel(BuildContext context, String text) => Padding(
+        padding: const EdgeInsets.only(left: 8, bottom: 4),
+        child: Text(
+          text,
+          style: TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 1.1,
+            color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+          ),
+        ),
       );
 
   Widget _emptyLabel(BuildContext context, String text) => Text(
@@ -660,26 +678,34 @@ class _AssetTileState extends State<_AssetTile> {
 
   @override
   Widget build(BuildContext context) {
-    final tileContent = Material(
-      color: Theme.of(context)
-          .colorScheme
-          .surfaceContainerHighest
-          .withValues(alpha: 0.35),
-      borderRadius: BorderRadius.circular(8),
+    final colorScheme = Theme.of(context).colorScheme;
+
+    final tileContent = Container(
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.3),
+          width: 0.5,
+        ),
+      ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: _extracting ? null : _handleTap,
         onSecondaryTapDown: _showContextMenu,
+        hoverColor: colorScheme.primary.withValues(alpha: 0.05),
+        splashColor: colorScheme.primary.withValues(alpha: 0.1),
         child: Tooltip(
           message: asset.name,
+          waitDuration: const Duration(milliseconds: 500),
           child: Padding(
-            padding: const EdgeInsets.all(6),
+            padding: const EdgeInsets.all(8),
             child: _extracting
                 ? const Center(
                     child: SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 1.5),
                     ),
                   )
                 : _buildPreview(context),

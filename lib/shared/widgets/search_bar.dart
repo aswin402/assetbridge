@@ -14,31 +14,38 @@ class LibrarySearchBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final border = OutlineInputBorder(
-      borderRadius: BorderRadius.circular(12),
-      borderSide: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
-    );
+    final colorScheme = Theme.of(context).colorScheme;
 
-    return SizedBox(
-      height: 40,
+    return Container(
+      height: 36,
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+        borderRadius: BorderRadius.circular(8),
+      ),
       child: TextField(
         controller: controller,
         onChanged: onChanged,
         textInputAction: TextInputAction.search,
+        style: const TextStyle(fontSize: 13),
         decoration: InputDecoration(
           hintText: hintText,
-          isDense: true,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          prefixIcon: const Icon(Icons.search, size: 20),
-          border: border,
-          enabledBorder: border,
-          focusedBorder: border.copyWith(
-            borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 1.5),
+          hintStyle: TextStyle(
+            fontSize: 13,
+            color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
           ),
-          filled: true,
-          fillColor: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+          isDense: true,
+          contentPadding: const EdgeInsets.symmetric(vertical: 8),
+          prefixIcon: Icon(
+            Icons.search_rounded,
+            size: 18,
+            color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+          ),
+          border: InputBorder.none,
+          enabledBorder: InputBorder.none,
+          focusedBorder: InputBorder.none,
         ),
       ),
     );
   }
 }
+
