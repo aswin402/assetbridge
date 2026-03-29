@@ -24,21 +24,26 @@ import '../downloader/pack_install_notifier.dart';
 import 'library_providers.dart';
 import '../../shared/theme/theme_mode_provider.dart';
 import '../../core/providers/toast_provider.dart';
+import '../../shared/widgets/custom_title_bar.dart';
 
 final _categories = ['All', 'Arrows', 'UI', 'Social', 'Shapes', 'More'];
 
 String? _categoryKeyword(String chip) {
   switch (chip) {
-    case 'Arrows': return 'arrow';
-    case 'UI': return 'ui';
-    case 'Social': return 'social';
-    case 'Shapes': return 'shape';
-    default: return null;
+    case 'Arrows':
+      return 'arrow';
+    case 'UI':
+      return 'ui';
+    case 'Social':
+      return 'social';
+    case 'Shapes':
+      return 'shape';
+    default:
+      return null;
   }
 }
 
-bool _assetIsSvg(Asset asset) =>
-    asset.filePath.toLowerCase().endsWith('.svg');
+bool _assetIsSvg(Asset asset) => asset.filePath.toLowerCase().endsWith('.svg');
 
 bool _assetIsSketch(Asset asset) {
   if (asset.filePath.toLowerCase().endsWith('.sketch')) return true;
@@ -77,7 +82,9 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 200), () {
       if (!mounted) return;
-      setState(() => _debouncedSearch = _searchController.text.trim().toLowerCase());
+      setState(
+        () => _debouncedSearch = _searchController.text.trim().toLowerCase(),
+      );
     });
   }
 
@@ -86,9 +93,14 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete pack?'),
-        content: Text('This will remove "${pack.name}" and all its icons from your library.'),
+        content: Text(
+          'This will remove "${pack.name}" and all its icons from your library.',
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
             style: FilledButton.styleFrom(
@@ -101,7 +113,10 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
       ),
     );
     if (confirmed == true && mounted) {
-      final slug = pack.name.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '_');
+      final slug = pack.name.toLowerCase().replaceAll(
+        RegExp(r'[^a-z0-9]'),
+        '_',
+      );
       ref.read(packInstallProvider.notifier).delete(pack.name, slug);
     }
   }
@@ -159,7 +174,9 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                 value: isUiKit,
                 onChanged: (v) => setState(() => isUiKit = v),
                 title: const Text('Treat as UI Kit'),
-                subtitle: const Text('Components will extracted from Sketch files if present'),
+                subtitle: const Text(
+                  'Components will extracted from Sketch files if present',
+                ),
                 dense: true,
                 contentPadding: EdgeInsets.zero,
               ),
@@ -175,11 +192,13 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                 final name = nameController.text.trim();
                 final path = pathController.text.trim();
                 if (name.isNotEmpty && path.isNotEmpty) {
-                  ref.read(packInstallProvider.notifier).installCustomLibrary(
-                    name: name,
-                    path: path,
-                    isUiKit: isUiKit,
-                  );
+                  ref
+                      .read(packInstallProvider.notifier)
+                      .installCustomLibrary(
+                        name: name,
+                        path: path,
+                        isUiKit: isUiKit,
+                      );
                   Navigator.pop(context);
                 }
               },
@@ -205,7 +224,9 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
       if (_selectedPackId != null && a.packId != _selectedPackId) return false;
       if (_debouncedSearch.isNotEmpty) {
         final q = _debouncedSearch;
-        if (!a.name.toLowerCase().contains(q) && !a.tags.toLowerCase().contains(q)) return false;
+        if (!a.name.toLowerCase().contains(q) &&
+            !a.tags.toLowerCase().contains(q))
+          return false;
       }
       if (kw != null && !a.tags.toLowerCase().contains(kw)) return false;
       return true;
@@ -228,324 +249,400 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     });
 
     return Scaffold(
-      body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
-              child: Row(
-                children: [
-                  Text('AssetBridge',
-                    style: TextStyle(
-                      fontSize: 18, fontWeight: FontWeight.w700,
-                      letterSpacing: -0.5,
-                      color: Theme.of(context).colorScheme.onSurface,
-                    ),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const CustomTitleBar(),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+            child: Row(
+              children: [
+                Text(
+                  'AssetBridge',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.5,
+                    color: Theme.of(context).colorScheme.onSurface,
                   ),
-                  const SizedBox(width: 32),
-                  Expanded(child: LibrarySearchBar(controller: _searchController)),
-                  const SizedBox(width: 12),
-                  IconButton(
-                    onPressed: () {
-                      final isDark = Theme.of(context).brightness == Brightness.dark;
-                      ref.read(themeModeProvider.notifier).setThemeMode(
-                        isDark ? ThemeMode.light : ThemeMode.dark,
-                      );
-                    },
-                    icon: Icon(
-                      Theme.of(context).brightness == Brightness.light
-                          ? Icons.dark_mode_outlined
-                          : Icons.light_mode_outlined,
-                      size: 20,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                    tooltip: 'Toggle Theme',
-                  ),
-                ],
-              ),
+                ),
+                const SizedBox(width: 32),
+                Expanded(
+                  child: LibrarySearchBar(controller: _searchController),
+                ),
+              ],
             ),
-            Expanded(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // ── Sidebar ──────────────────────────────────────────────
-                  SizedBox(
-                    width: 240,
-                    child: Container(
-                      color: Theme.of(context).colorScheme.surfaceContainerLow,
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(12, 16, 12, 16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Expanded(
-                              child: SingleChildScrollView(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                                  children: [
-                                    _sectionLabel(context, 'ICON PACKS'),
-                                    const SizedBox(height: 8),
-                                    packsAsync.when(
-                                      loading: () => const SizedBox.shrink(),
-                                      error: (e, _) => Center(child: Text('$e')),
-                                      data: (packs) {
-                                        final icons = packs.where((p) => !p.isUiKit && !p.isCustom).toList();
-                                        return Column(
-                                          children: [
-                                            PackSidebarRow(
-                                              title: 'All Assets',
-                                              countLabel: '${packs.fold(0, (sum, p) => sum + p.iconCount)}',
-                                              selected: _selectedPackId == null,
-                                              showIcon: false,
-                                              onTap: () => setState(() => _selectedPackId = null),
+          ),
+          Expanded(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // ── Sidebar ──────────────────────────────────────────────
+                SizedBox(
+                  width: 240,
+                  child: Container(
+                    color: Theme.of(context).colorScheme.surfaceContainerLow,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 16, 12, 16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Expanded(
+                            child: SingleChildScrollView(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  _sectionLabel(context, 'ICON PACKS'),
+                                  const SizedBox(height: 8),
+                                  packsAsync.when(
+                                    loading: () => const SizedBox.shrink(),
+                                    error: (e, _) => Center(child: Text('$e')),
+                                    data: (packs) {
+                                      final icons = packs
+                                          .where(
+                                            (p) => !p.isUiKit && !p.isCustom,
+                                          )
+                                          .toList();
+                                      return Column(
+                                        children: [
+                                          PackSidebarRow(
+                                            title: 'All Assets',
+                                            countLabel:
+                                                '${packs.fold(0, (sum, p) => sum + p.iconCount)}',
+                                            selected: _selectedPackId == null,
+                                            showIcon: false,
+                                            onTap: () => setState(
+                                              () => _selectedPackId = null,
                                             ),
-                                            if (icons.isEmpty)
-                                              _emptyLabel(context, 'No icon packs installed.')
-                                            else
-                                              ListView.builder(
-                                                shrinkWrap: true,
-                                                physics: const NeverScrollableScrollPhysics(),
-                                                itemCount: icons.length,
-                                                itemBuilder: (context, i) {
-                                                  final pack = icons[i];
-                                                  return PackSidebarRow(
-                                                    title: pack.name,
-                                                    countLabel: '${pack.iconCount}',
-                                                    selected: _selectedPackId == pack.id,
-                                                    onTap: () => setState(() {
-                                                      _selectedPackId = (_selectedPackId == pack.id) ? null : pack.id;
-                                                    }),
-                                                    onDelete: () => _confirmDeletePack(pack),
-                                                  );
-                                                },
-                                              ),
-                                          ],
+                                          ),
+                                          if (icons.isEmpty)
+                                            _emptyLabel(
+                                              context,
+                                              'No icon packs installed.',
+                                            )
+                                          else
+                                            ListView.builder(
+                                              shrinkWrap: true,
+                                              physics:
+                                                  const NeverScrollableScrollPhysics(),
+                                              itemCount: icons.length,
+                                              itemBuilder: (context, i) {
+                                                final pack = icons[i];
+                                                return PackSidebarRow(
+                                                  title: pack.name,
+                                                  countLabel:
+                                                      '${pack.iconCount}',
+                                                  selected:
+                                                      _selectedPackId ==
+                                                      pack.id,
+                                                  onTap: () => setState(() {
+                                                    _selectedPackId =
+                                                        (_selectedPackId ==
+                                                            pack.id)
+                                                        ? null
+                                                        : pack.id;
+                                                  }),
+                                                  onDelete: () =>
+                                                      _confirmDeletePack(pack),
+                                                );
+                                              },
+                                            ),
+                                        ],
+                                      );
+                                    },
+                                  ),
+                                  const SizedBox(height: 24),
+                                  _sectionLabel(context, 'MY LIBRARIES'),
+                                  const SizedBox(height: 8),
+                                  packsAsync.when(
+                                    loading: () => const SizedBox.shrink(),
+                                    error: (e, _) => const SizedBox.shrink(),
+                                    data: (packs) {
+                                      final customs = packs
+                                          .where((p) => p.isCustom)
+                                          .toList();
+                                      if (customs.isEmpty)
+                                        return _emptyLabel(
+                                          context,
+                                          'No custom libraries.',
                                         );
-                                      },
-                                    ),
-                                    const SizedBox(height: 24),
-                                    _sectionLabel(context, 'MY LIBRARIES'),
-                                    const SizedBox(height: 8),
-                                    packsAsync.when(
-                                      loading: () => const SizedBox.shrink(),
-                                      error: (e, _) => const SizedBox.shrink(),
-                                      data: (packs) {
-                                        final customs = packs.where((p) => p.isCustom).toList();
-                                        if (customs.isEmpty) return _emptyLabel(context, 'No custom libraries.');
-                                        return ListView.builder(
-                                          shrinkWrap: true,
-                                          physics: const NeverScrollableScrollPhysics(),
-                                          itemCount: customs.length,
-                                          itemBuilder: (context, i) {
-                                            final pack = customs[i];
-                                            return PackSidebarRow(
-                                              title: pack.name,
-                                              countLabel: '${pack.iconCount}',
-                                              selected: _selectedPackId == pack.id,
-                                              onTap: () => setState(() {
-                                                _selectedPackId = (_selectedPackId == pack.id) ? null : pack.id;
-                                              }),
-                                              onDelete: () => _confirmDeletePack(pack),
-                                            );
-                                          },
+                                      return ListView.builder(
+                                        shrinkWrap: true,
+                                        physics:
+                                            const NeverScrollableScrollPhysics(),
+                                        itemCount: customs.length,
+                                        itemBuilder: (context, i) {
+                                          final pack = customs[i];
+                                          return PackSidebarRow(
+                                            title: pack.name,
+                                            countLabel: '${pack.iconCount}',
+                                            selected:
+                                                _selectedPackId == pack.id,
+                                            onTap: () => setState(() {
+                                              _selectedPackId =
+                                                  (_selectedPackId == pack.id)
+                                                  ? null
+                                                  : pack.id;
+                                            }),
+                                            onDelete: () =>
+                                                _confirmDeletePack(pack),
+                                          );
+                                        },
+                                      );
+                                    },
+                                  ),
+                                  const SizedBox(height: 24),
+                                  _sectionLabel(context, 'UI KITS'),
+                                  const SizedBox(height: 8),
+                                  packsAsync.when(
+                                    loading: () => const SizedBox.shrink(),
+                                    error: (e, _) => const SizedBox.shrink(),
+                                    data: (packs) {
+                                      final kits = packs
+                                          .where(
+                                            (p) => p.isUiKit && !p.isCustom,
+                                          )
+                                          .toList();
+                                      if (kits.isEmpty)
+                                        return _emptyLabel(
+                                          context,
+                                          'No UI kits added.',
                                         );
-                                      },
-                                    ),
-                                    const SizedBox(height: 24),
-                                    _sectionLabel(context, 'UI KITS'),
-                                    const SizedBox(height: 8),
-                                    packsAsync.when(
-                                      loading: () => const SizedBox.shrink(),
-                                      error: (e, _) => const SizedBox.shrink(),
-                                      data: (packs) {
-                                        final kits = packs.where((p) => p.isUiKit && !p.isCustom).toList();
-                                        if (kits.isEmpty) return _emptyLabel(context, 'No UI kits added.');
-                                        return ListView.builder(
-                                          shrinkWrap: true,
-                                          physics: const NeverScrollableScrollPhysics(),
-                                          itemCount: kits.length,
-                                          itemBuilder: (context, i) {
-                                            final pack = kits[i];
-                                            return PackSidebarRow(
-                                              title: pack.name,
-                                              countLabel: '${pack.iconCount}',
-                                              selected: _selectedPackId == pack.id,
-                                              onTap: () => setState(() {
-                                                _selectedPackId = (_selectedPackId == pack.id) ? null : pack.id;
-                                              }),
-                                              onDelete: () => _confirmDeletePack(pack),
-                                            );
-                                          },
-                                        );
-                                      },
-                                    ),
-                                  ],
+                                      return ListView.builder(
+                                        shrinkWrap: true,
+                                        physics:
+                                            const NeverScrollableScrollPhysics(),
+                                        itemCount: kits.length,
+                                        itemBuilder: (context, i) {
+                                          final pack = kits[i];
+                                          return PackSidebarRow(
+                                            title: pack.name,
+                                            countLabel: '${pack.iconCount}',
+                                            selected:
+                                                _selectedPackId == pack.id,
+                                            onTap: () => setState(() {
+                                              _selectedPackId =
+                                                  (_selectedPackId == pack.id)
+                                                  ? null
+                                                  : pack.id;
+                                            }),
+                                            onDelete: () =>
+                                                _confirmDeletePack(pack),
+                                          );
+                                        },
+                                      );
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          FilledButton(
+                            onPressed: _showAddLibraryDialog,
+                            style: FilledButton.styleFrom(
+                              backgroundColor: Theme.of(
+                                context,
+                              ).colorScheme.primary,
+                              foregroundColor: Theme.of(
+                                context,
+                              ).colorScheme.onPrimary,
+                            ),
+                            child: const Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.library_add_rounded, size: 18),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Add Library',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
-                              ),
+                              ],
                             ),
-                            const SizedBox(height: 16),
-                            FilledButton(
-                              onPressed: _showAddLibraryDialog,
-                              style: FilledButton.styleFrom(
-                                backgroundColor: Theme.of(context).colorScheme.primary,
-                                foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                              ),
-                              child: const Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.library_add_rounded, size: 18),
-                                  const SizedBox(width: 8),
-                                  Text('Add Library', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                                ],
-                              ),
+                          ),
+                          const SizedBox(height: 8),
+                          FilledButton.tonal(
+                            onPressed: () {
+                              Navigator.of(context).push<void>(
+                                MaterialPageRoute(
+                                  builder: (_) => const DownloaderScreen(),
+                                ),
+                              );
+                            },
+                            style: FilledButton.styleFrom(
+                              backgroundColor: Theme.of(context)
+                                  .colorScheme
+                                  .secondaryContainer
+                                  .withValues(alpha: 0.5),
+                              foregroundColor: Theme.of(
+                                context,
+                              ).colorScheme.onSecondaryContainer,
                             ),
-                            const SizedBox(height: 8),
-                            FilledButton.tonal(
-                              onPressed: () {
-                                Navigator.of(context).push<void>(
-                                  MaterialPageRoute(builder: (_) => const DownloaderScreen()),
-                                );
-                              },
-                              style: FilledButton.styleFrom(
-                                backgroundColor: Theme.of(context).colorScheme.secondaryContainer.withValues(alpha: 0.5),
-                                foregroundColor: Theme.of(context).colorScheme.onSecondaryContainer,
-                              ),
-                              child: const Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.add_rounded, size: 18),
-                                  SizedBox(width: 8),
-                                  Text('Add Pack', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                                ],
+                            child: const Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.add_rounded, size: 18),
+                                SizedBox(width: 8),
+                                Text(
+                                  'Add Pack',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                // ── Main grid ────────────────────────────────────────────
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: [
+                              for (final c in _categories)
+                                Padding(
+                                  padding: const EdgeInsets.only(right: 6),
+                                  child: CategoryChip(
+                                    label: c,
+                                    selected: _selectedCategory == c,
+                                    onSelected: (_) =>
+                                        setState(() => _selectedCategory = c),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.grid_view_rounded,
+                              size: 14,
+                              color: Colors.grey,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: SliderTheme(
+                                data: SliderTheme.of(context).copyWith(
+                                  trackHeight: 2,
+                                  thumbShape: const RoundSliderThumbShape(
+                                    enabledThumbRadius: 6,
+                                  ),
+                                  overlayShape: const RoundSliderOverlayShape(
+                                    overlayRadius: 14,
+                                  ),
+                                ),
+                                child: Slider(
+                                  value: _gridExtent,
+                                  min: 48,
+                                  max: 120,
+                                  divisions: 12,
+                                  onChanged: (v) =>
+                                      setState(() => _gridExtent = v),
+                                ),
                               ),
                             ),
                           ],
                         ),
                       ),
-                    ),
-                  ),
-                  // ── Main grid ────────────────────────────────────────────
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                          child: SingleChildScrollView(
-                            scrollDirection: Axis.horizontal,
-                            child: Row(
-                              children: [
-                                for (final c in _categories)
-                                  Padding(
-                                    padding: const EdgeInsets.only(right: 6),
-                                    child: CategoryChip(
-                                      label: c,
-                                      selected: _selectedCategory == c,
-                                      onSelected: (_) => setState(() => _selectedCategory = c),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.grid_view_rounded, size: 14, color: Colors.grey),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: SliderTheme(
-                                  data: SliderTheme.of(context).copyWith(
-                                    trackHeight: 2,
-                                    thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
-                                    overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
-                                  ),
-                                  child: Slider(
-                                    value: _gridExtent,
-                                    min: 48,
-                                    max: 120,
-                                    divisions: 12,
-                                    onChanged: (v) => setState(() => _gridExtent = v),
-                                  ),
+                      Expanded(
+                        child: assetsAsync.when(
+                          loading: () =>
+                              const Center(child: CircularProgressIndicator()),
+                          error: (e, _) => Center(child: Text('$e')),
+                          data: (assets) {
+                            final filtered = _filterAssets(assets);
+                            if (assets.isEmpty) {
+                              return _LibraryEmptyState(
+                                gridExtent: _gridExtent,
+                                hasPacks: packsAsync.maybeWhen(
+                                  data: (p) => p.isNotEmpty,
+                                  orElse: () => false,
                                 ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Expanded(
-                          child: assetsAsync.when(
-                            loading: () => const Center(child: CircularProgressIndicator()),
-                            error: (e, _) => Center(child: Text('$e')),
-                            data: (assets) {
-                              final filtered = _filterAssets(assets);
-                              if (assets.isEmpty) {
-                                return _LibraryEmptyState(
-                                  gridExtent: _gridExtent,
-                                  hasPacks: packsAsync.maybeWhen(
-                                    data: (p) => p.isNotEmpty,
-                                    orElse: () => false,
-                                  ),
-                                );
-                              }
-                              if (filtered.isEmpty) {
-                                return Center(
-                                  child: Text('No icons match filters.',
-                                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                                    ),
-                                  ),
-                                );
-                              }
-                              return GridView.builder(
-                                padding: const EdgeInsets.all(16),
-                                gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-                                  maxCrossAxisExtent: _gridExtent,
-                                  mainAxisSpacing: 8,
-                                  crossAxisSpacing: 8,
-                                  childAspectRatio: 1,
-                                ),
-                                itemCount: filtered.length,
-                                // KEY FIX: addRepaintBoundaries isolates repaints
-                                // addAutomaticKeepAlives: false releases memory for
-                                // off-screen sketch preview widgets
-                                addAutomaticKeepAlives: false,
-                                addRepaintBoundaries: true,
-                                itemBuilder: (context, i) {
-                                  return _AssetTile(
-                                    key: ValueKey(filtered[i].id),
-                                    asset: filtered[i],
-                                    size: _gridExtent,
-                                  );
-                                },
                               );
-                            },
-                          ),
+                            }
+                            if (filtered.isEmpty) {
+                              return Center(
+                                child: Text(
+                                  'No icons match filters.',
+                                  style: Theme.of(context).textTheme.bodyLarge
+                                      ?.copyWith(
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.onSurfaceVariant,
+                                      ),
+                                ),
+                              );
+                            }
+                            return GridView.builder(
+                              padding: const EdgeInsets.all(16),
+                              gridDelegate:
+                                  SliverGridDelegateWithMaxCrossAxisExtent(
+                                    maxCrossAxisExtent: _gridExtent,
+                                    mainAxisSpacing: 8,
+                                    crossAxisSpacing: 8,
+                                    childAspectRatio: 1,
+                                  ),
+                              itemCount: filtered.length,
+                              // KEY FIX: addRepaintBoundaries isolates repaints
+                              // addAutomaticKeepAlives: false releases memory for
+                              // off-screen sketch preview widgets
+                              addAutomaticKeepAlives: false,
+                              addRepaintBoundaries: true,
+                              itemBuilder: (context, i) {
+                                return _AssetTile(
+                                  key: ValueKey(filtered[i].id),
+                                  asset: filtered[i],
+                                  size: _gridExtent,
+                                );
+                              },
+                            );
+                          },
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _sectionLabel(BuildContext context, String text) => Padding(
     padding: const EdgeInsets.only(left: 8, bottom: 4),
-    child: Text(text,
+    child: Text(
+      text,
       style: TextStyle(
-        fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 1.1,
-        color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+        fontSize: 10,
+        fontWeight: FontWeight.w700,
+        letterSpacing: 1.1,
+        color: Theme.of(
+          context,
+        ).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
       ),
     ),
   );
 
-  Widget _emptyLabel(BuildContext context, String text) => Text(text,
+  Widget _emptyLabel(BuildContext context, String text) => Text(
+    text,
     style: Theme.of(context).textTheme.bodySmall?.copyWith(
       color: Theme.of(context).colorScheme.onSurfaceVariant,
     ),
@@ -575,8 +672,14 @@ class _AssetTileState extends ConsumerState<_AssetTile> {
   bool get isSketch => _assetIsSketch(asset);
 
   Future<void> _handleTap() async {
-    if (isSvg) { await _copySvgSource(); return; }
-    if (isSketch) { await _copySketchAsSvg(); return; }
+    if (isSvg) {
+      await _copySvgSource();
+      return;
+    }
+    if (isSketch) {
+      await _copySketchAsSvg();
+      return;
+    }
     await _copyRawPath();
   }
 
@@ -595,11 +698,15 @@ class _AssetTileState extends ConsumerState<_AssetTile> {
     try {
       final svgText = await _resolveSvg();
       if (svgText == null || svgText.isEmpty) {
-        ref.read(toastProvider.notifier).error('Could not convert ${asset.name} to SVG');
+        ref
+            .read(toastProvider.notifier)
+            .error('Could not convert ${asset.name} to SVG');
         return;
       }
       await Clipboard.setData(ClipboardData(text: svgText));
-      ref.read(toastProvider.notifier).success('Copied as SVG: ${asset.name} — paste into Lunacy');
+      ref
+          .read(toastProvider.notifier)
+          .success('Copied as SVG: ${asset.name} — paste into Lunacy');
     } catch (e) {
       ref.read(toastProvider.notifier).error('Error: $e');
     } finally {
@@ -639,7 +746,8 @@ class _AssetTileState extends ConsumerState<_AssetTile> {
     await for (final entity in pagesDir.list()) {
       if (entity is! File || !entity.path.endsWith('.json')) continue;
       try {
-        final json = jsonDecode(await entity.readAsString()) as Map<String, dynamic>;
+        final json =
+            jsonDecode(await entity.readAsString()) as Map<String, dynamic>;
         final layers = json['layers'] as List<dynamic>?;
         if (layers == null) continue;
         for (final layer in layers) {
@@ -667,10 +775,12 @@ class _AssetTileState extends ConsumerState<_AssetTile> {
     } else if (isSketch) {
       final svgText = await _resolveSvg();
       if (svgText != null) {
-        final tempFile = File(p.join(
-          AppPaths.thumbnailsRoot,
-          '${asset.name.replaceAll(RegExp(r'[^\w]'), '_')}_drag.svg',
-        ));
+        final tempFile = File(
+          p.join(
+            AppPaths.thumbnailsRoot,
+            '${asset.name.replaceAll(RegExp(r'[^\w]'), '_')}_drag.svg',
+          ),
+        );
         await tempFile.writeAsString(svgText);
         filePath = tempFile.path;
       }
@@ -691,7 +801,10 @@ class _AssetTileState extends ConsumerState<_AssetTile> {
       decoration: BoxDecoration(
         color: colorScheme.surface,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.3), width: 0.5),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.3),
+          width: 0.5,
+        ),
       ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -705,7 +818,13 @@ class _AssetTileState extends ConsumerState<_AssetTile> {
           child: Padding(
             padding: const EdgeInsets.all(8),
             child: _extracting
-                ? const Center(child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 1.5)))
+                ? const Center(
+                    child: SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 1.5),
+                    ),
+                  )
                 : _buildPreview(context),
           ),
         ),
@@ -756,11 +875,8 @@ class _AssetTileState extends ConsumerState<_AssetTile> {
     return _fallbackIcon(context);
   }
 
-  Widget _fallbackIcon(BuildContext context) => Icon(
-    Icons.diamond_outlined,
-    size: size * 0.45,
-    color: Colors.orange,
-  );
+  Widget _fallbackIcon(BuildContext context) =>
+      Icon(Icons.diamond_outlined, size: size * 0.45, color: Colors.orange);
 
   void _showContextMenu(TapDownDetails details) {
     final pos = details.globalPosition;
@@ -768,20 +884,36 @@ class _AssetTileState extends ConsumerState<_AssetTile> {
       context: context,
       position: RelativeRect.fromLTRB(pos.dx, pos.dy, pos.dx, pos.dy),
       items: [
-        if (isSvg) PopupMenuItem(
-          onTap: _copySvgSource,
-          child: const ListTile(leading: Icon(Icons.code, size: 18), title: Text('Copy SVG source'), dense: true),
-        ),
-        if (isSketch) PopupMenuItem(
-          onTap: _copySketchAsSvg,
-          child: const ListTile(leading: Icon(Icons.content_copy_outlined, size: 18), title: Text('Copy as SVG (paste into Lunacy)'), dense: true),
-        ),
+        if (isSvg)
+          PopupMenuItem(
+            onTap: _copySvgSource,
+            child: const ListTile(
+              leading: Icon(Icons.code, size: 18),
+              title: Text('Copy SVG source'),
+              dense: true,
+            ),
+          ),
+        if (isSketch)
+          PopupMenuItem(
+            onTap: _copySketchAsSvg,
+            child: const ListTile(
+              leading: Icon(Icons.content_copy_outlined, size: 18),
+              title: Text('Copy as SVG (paste into Lunacy)'),
+              dense: true,
+            ),
+          ),
         PopupMenuItem(
           onTap: () async {
-            final dir = isSvg ? File(asset.filePath).parent.path : asset.filePath;
+            final dir = isSvg
+                ? File(asset.filePath).parent.path
+                : asset.filePath;
             await Process.run('xdg-open', [dir]);
           },
-          child: const ListTile(leading: Icon(Icons.folder_open_outlined, size: 18), title: Text('Show in Files'), dense: true),
+          child: const ListTile(
+            leading: Icon(Icons.folder_open_outlined, size: 18),
+            title: Text('Show in Files'),
+            dense: true,
+          ),
         ),
       ],
     );
@@ -799,7 +931,8 @@ class _SketchComponentPreview extends StatefulWidget {
   final double size;
 
   @override
-  State<_SketchComponentPreview> createState() => _SketchComponentPreviewState();
+  State<_SketchComponentPreview> createState() =>
+      _SketchComponentPreviewState();
 }
 
 class _SketchComponentPreviewState extends State<_SketchComponentPreview> {
@@ -817,7 +950,11 @@ class _SketchComponentPreviewState extends State<_SketchComponentPreview> {
   void didUpdateWidget(_SketchComponentPreview old) {
     super.didUpdateWidget(old);
     if (old.asset.id != widget.asset.id) {
-      setState(() { _svgString = null; _loading = true; _failed = false; });
+      setState(() {
+        _svgString = null;
+        _loading = true;
+        _failed = false;
+      });
       _loadSvg();
     }
   }
@@ -870,7 +1007,11 @@ class _SketchComponentPreviewState extends State<_SketchComponentPreview> {
         });
       }
     } catch (_) {
-      if (mounted) setState(() { _loading = false; _failed = true; });
+      if (mounted)
+        setState(() {
+          _loading = false;
+          _failed = true;
+        });
     } finally {
       svgLoadSemaphore.release();
     }
@@ -882,7 +1023,8 @@ class _SketchComponentPreviewState extends State<_SketchComponentPreview> {
     await for (final entity in pagesDir.list()) {
       if (entity is! File || !entity.path.endsWith('.json')) continue;
       try {
-        final json = jsonDecode(await entity.readAsString()) as Map<String, dynamic>;
+        final json =
+            jsonDecode(await entity.readAsString()) as Map<String, dynamic>;
         final layers = json['layers'] as List<dynamic>?;
         if (layers == null) continue;
         for (final layer in layers) {
@@ -918,13 +1060,21 @@ class _SketchComponentPreviewState extends State<_SketchComponentPreview> {
           fit: BoxFit.cover,
           width: double.infinity,
           height: double.infinity,
-          errorBuilder: (_, __, ___) => Icon(Icons.diamond_outlined, size: widget.size * 0.45, color: Colors.orange),
+          errorBuilder: (_, __, ___) => Icon(
+            Icons.diamond_outlined,
+            size: widget.size * 0.45,
+            color: Colors.orange,
+          ),
         ),
       );
     }
 
     if (_failed || _svgString == null) {
-      return Icon(Icons.diamond_outlined, size: widget.size * 0.45, color: Colors.orange);
+      return Icon(
+        Icons.diamond_outlined,
+        size: widget.size * 0.45,
+        color: Colors.orange,
+      );
     }
 
     return SvgPicture.string(
@@ -932,7 +1082,11 @@ class _SketchComponentPreviewState extends State<_SketchComponentPreview> {
       width: widget.size * 0.9,
       height: widget.size * 0.9,
       fit: BoxFit.contain,
-      errorBuilder: (_, __, ___) => Icon(Icons.diamond_outlined, size: widget.size * 0.45, color: Colors.orange),
+      errorBuilder: (_, __, ___) => Icon(
+        Icons.diamond_outlined,
+        size: widget.size * 0.45,
+        color: Colors.orange,
+      ),
     );
   }
 }
@@ -955,11 +1109,18 @@ class _LibraryEmptyState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.photo_library_outlined, size: 64,
-              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.45)),
+            Icon(
+              Icons.photo_library_outlined,
+              size: 64,
+              color: Theme.of(
+                context,
+              ).colorScheme.primary.withValues(alpha: 0.45),
+            ),
             const SizedBox(height: 16),
-            Text(hasPacks ? 'No assets indexed yet' : 'No packs yet',
-              style: Theme.of(context).textTheme.titleMedium),
+            Text(
+              hasPacks ? 'No assets indexed yet' : 'No packs yet',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
             const SizedBox(height: 8),
             Text(
               hasPacks
@@ -967,7 +1128,8 @@ class _LibraryEmptyState extends StatelessWidget {
                   : 'Use Add Pack to download an icon pack or add a UI Kit.\nData: ${AppPaths.dataRoot}',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant),
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
           ],
         ),

@@ -6,6 +6,7 @@ import 'shared/theme/app_theme.dart';
 import 'shared/theme/theme_mode_provider.dart';
 
 import 'shared/widgets/toast_overlay.dart';
+import 'shared/widgets/window_resizer.dart';
 
 class AssetBridgeApp extends ConsumerWidget {
   const AssetBridgeApp({super.key});
@@ -20,7 +21,9 @@ class AssetBridgeApp extends ConsumerWidget {
       themeMode: mode,
       theme: AppTheme.light(null),
       darkTheme: AppTheme.dark(null),
-      builder: (context, child) => ToastOverlay(child: child!),
+      builder: (context, child) => ToastOverlay(
+        child: WindowResizer(child: child!),
+      ),
       home: const LibraryScreen(),
     );
   }
